@@ -30,20 +30,18 @@ public class User implements UserDetails {
     @Column(name = "id")
     private Long id;
 
-    @NotBlank
     @Column(name = "firstName", nullable = false)
     private String firstName;
 
-    @NotBlank
     @Column(name = "lastName", nullable = false)
     private String lastName;
 
     @NotBlank
-    @Column(name = "login", unique = true, nullable = false)
+    @Column(name = "login", unique = true, nullable = true)
     private String login;
 
     @NotBlank
-    @Column(name = "password", nullable = false)
+    @Column(name = "password", nullable = true)
     private String password;
 
     @CreationTimestamp

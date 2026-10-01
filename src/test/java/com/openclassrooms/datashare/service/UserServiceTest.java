@@ -23,8 +23,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(SpringExtension.class)
 public class UserServiceTest {
-    private static final String FIRST_NAME = "John";
-    private static final String LAST_NAME = "Doe";
     private static final String LOGIN = "LOGIN";
     private static final String PASSWORD = "PASSWORD";
     private static final String JWT_TOKEN = "JWT_TOKEN";
@@ -50,8 +48,6 @@ public class UserServiceTest {
     public void test_create_already_exist_user_throws_IllegalArgumentException() {
         // GIVEN
         User user = new User();
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
         user.setLogin(LOGIN);
         user.setPassword(PASSWORD);
         when(passwordEncoder.encode(PASSWORD)).thenReturn(PASSWORD);
@@ -66,8 +62,6 @@ public class UserServiceTest {
     public void test_create_user() {
         // GIVEN
         User user = new User();
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
         user.setLogin(LOGIN);
         user.setPassword(PASSWORD);
         when(passwordEncoder.encode(PASSWORD)).thenReturn(PASSWORD);
@@ -142,8 +136,6 @@ public class UserServiceTest {
 
     private User createUser() {
         User user = new User();
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
         user.setLogin(LOGIN);
         user.setPassword(PASSWORD);
         return user;

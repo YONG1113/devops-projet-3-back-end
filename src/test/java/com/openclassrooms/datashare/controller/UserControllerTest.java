@@ -30,8 +30,6 @@ public class UserControllerTest {
 
     private static final String URL = "/api/register";
     private static final String LOGIN_URL = "/api/login";
-    private static final String FIRST_NAME = "John";
-    private static final String LAST_NAME = "Doe";
     private static final String LOGIN = "login";
     private static final String PASSWORD = "password";
 
@@ -82,15 +80,11 @@ public class UserControllerTest {
     public void registerAlreadyExistUser() throws Exception {
         // GIVEN
         User user = new User();
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
         user.setLogin(LOGIN);
         user.setPassword(PASSWORD);
         userService.register(user);
 
         RegisterDTO registerDTO = new RegisterDTO();
-        registerDTO.setFirstName(FIRST_NAME);
-        registerDTO.setLastName(LAST_NAME);
         registerDTO.setLogin(LOGIN);
         registerDTO.setPassword(PASSWORD);
 
@@ -107,8 +101,6 @@ public class UserControllerTest {
     public void registerUserSuccessful() throws Exception {
         // GIVEN
         RegisterDTO registerDTO = new RegisterDTO();
-        registerDTO.setFirstName(FIRST_NAME);
-        registerDTO.setLastName(LAST_NAME);
         registerDTO.setLogin(LOGIN);
         registerDTO.setPassword(PASSWORD);
 
@@ -125,8 +117,6 @@ public class UserControllerTest {
     public void loginUserSuccessful() throws Exception {
         // GIVEN
         User user = new User();
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
         user.setLogin(LOGIN);
         user.setPassword(PASSWORD);
         userService.register(user);
@@ -148,8 +138,6 @@ public class UserControllerTest {
     public void loginUserWithInvalidPassword() throws Exception {
         // GIVEN
         User user = new User();
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
         user.setLogin(LOGIN);
         user.setPassword(PASSWORD);
         userService.register(user);
