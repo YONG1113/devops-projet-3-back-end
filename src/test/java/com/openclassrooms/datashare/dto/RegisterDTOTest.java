@@ -22,13 +22,11 @@ class RegisterDTOTest {
 
         assertThat(validator.validate(dto))
                 .extracting(violation -> violation.getPropertyPath().toString())
-                .containsExactlyInAnyOrder("firstName", "lastName", "login", "password");
+                .containsExactlyInAnyOrder("login", "password");
     }
 
     private RegisterDTO validDto() {
         RegisterDTO dto = new RegisterDTO();
-        dto.setFirstName("John");
-        dto.setLastName("Doe");
         dto.setLogin("john");
         dto.setPassword("password");
         return dto;

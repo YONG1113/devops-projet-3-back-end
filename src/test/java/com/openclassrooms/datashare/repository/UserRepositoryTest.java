@@ -51,8 +51,6 @@ class UserRepositoryTest {
 
     private User user() {
         User user = new User();
-        user.setFirstName("John");
-        user.setLastName("Doe");
         user.setLogin("john");
         user.setPassword("encoded-password");
         return user;
