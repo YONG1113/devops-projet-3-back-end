@@ -4,6 +4,10 @@ import com.openclassrooms.datashare.dto.LoginRequestDTO;
 import com.openclassrooms.datashare.dto.RegisterDTO;
 import com.openclassrooms.datashare.mapper.UserDtoMapper;
 import com.openclassrooms.datashare.service.UserService;
+import com.openclassrooms.datashare.entities.User;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import java.util.Map;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,6 +24,11 @@ public class UserController {
 
     private final UserService userService;
     private final UserDtoMapper userDtoMapper;
+
+    @GetMapping("/api/me")
+    public Map<String, String> currentUser(@AuthenticationPrincipal User user) {
+        return Map.of("id", user.getId().toString());
+    }
 
     @PostMapping("/api/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterDTO registerDTO) {
