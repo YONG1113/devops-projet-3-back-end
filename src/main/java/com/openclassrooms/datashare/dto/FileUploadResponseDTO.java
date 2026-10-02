@@ -4,5 +4,9 @@ public record FileUploadResponseDTO(
         String filename,
         long size,
         String contentType,
-        String status) {
+        String status,
+        Long id,
+        Long userId,
+        String bucket,
+        String objectPath) {
 }
