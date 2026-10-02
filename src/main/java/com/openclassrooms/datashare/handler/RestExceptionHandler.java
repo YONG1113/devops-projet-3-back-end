@@ -1,5 +1,7 @@
 package com.openclassrooms.datashare.handler;
 
+import com.openclassrooms.datashare.service.StorageException;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,12 @@ import java.time.LocalDateTime;
 
 @RestControllerAdvice
 public class RestExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(StorageException.class)
+    protected ResponseEntity<Object> handleStorageException(StorageException exception, WebRequest request) {
+        return handleExceptionInternal(exception, getErrorDetails(exception, request), new HttpHeaders(),
+                HttpStatus.BAD_GATEWAY, request);
+    }
 
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(value = {IllegalArgumentException.class, IllegalStateException.class})

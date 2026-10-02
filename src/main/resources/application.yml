@@ -1,4 +1,8 @@
 spring:
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 7MB
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require
@@ -31,3 +35,9 @@ management:
 jwt:
   secret: ${JWT_SECRET}
   expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+supabase:
+  url: ${SUPABASE_URL:}
+  secret-key: ${SUPABASE_SECRET_KEY:}
+  storage:
+    bucket: ${SUPABASE_BUCKET:}
