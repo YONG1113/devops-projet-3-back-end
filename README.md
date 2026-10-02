@@ -34,12 +34,8 @@ Point d'entrée : `dataShareBackEndApplication`. Port HTTP par défaut : 8080.
 ## API
 
 - `POST /api/register` : création d'un utilisateur.
-  Corps JSON : `{"login":"user@example.com","password":"mot-de-passe"}`.
-  Le prénom et le nom ne sont plus requis ni persistés par l'application.
-  Pour une base existante, exécuter manuellement `sql/registration-without-names.sql`
-  dans Supabase afin de retirer les contraintes NOT NULL des anciennes colonnes.
-  Le script conserve les données historiques et n'est pas exécuté automatiquement.
 - `POST /api/login` : authentification et génération d'un JWT.
+- `POST /api/file` : réception d'un fichier.
 
 ## Tests
 
