@@ -54,8 +54,7 @@ public class SpringSecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/register", "/api/login").permitAll()
                         // Others protected routes will be added here.
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exceptionHandling -> exceptionHandling.authenticationEntryPoint(
                         (request, response, exception) -> {
