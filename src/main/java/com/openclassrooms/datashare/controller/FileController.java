@@ -5,6 +5,12 @@ import com.openclassrooms.datashare.service.FileService;
 import com.openclassrooms.datashare.entities.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.CacheControl;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.server.ResponseStatusException;
+import java.nio.charset.StandardCharsets;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +25,34 @@ import org.springframework.web.multipart.MultipartFile;
 public class FileController {
 
     private final FileService fileService;
+
+    @GetMapping("/api/file")
+    public ResponseEntity<byte[]> download(
+            @RequestParam("objectPath") String objectPath,
+            Authentication authentication) {
+        try {
+            var file = fileService.download(objectPath, authentication.getName());
+            String filename = file.filename().replaceAll("[\\r\\n]", "_");
+            return ResponseEntity.ok()
+                    .contentType(resolveMediaType(file.contentType()))
+                    .contentLength(file.content().length)
+                    .cacheControl(CacheControl.noStore())
+                    .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                            .filename(filename, StandardCharsets.UTF_8).build().toString())
+                    .body(file.content());
+        } catch (ResponseStatusException exception) {
+            // Preserve these statuses despite the existing catch-all exception handler.
+            return ResponseEntity.status(exception.getStatusCode()).build();
+        }
+    }
+
+    private MediaType resolveMediaType(String contentType) {
+        try {
+            return MediaType.parseMediaType(contentType);
+        } catch (IllegalArgumentException exception) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+    }
 
     @PostMapping(value = "/api/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<FileUploadResponseDTO> upload(

@@ -7,6 +7,8 @@ import com.openclassrooms.datashare.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,27 @@ public class FileService {
     private final FileRepository fileRepository;
     private final SupabaseStorageService storageService;
     private final PasswordEncoder passwordEncoder;
+
+    public record DownloadResult(String filename, String contentType, byte[] content) {
+    }
+
+    public DownloadResult download(String objectPath, String login) {
+        Assert.hasText(objectPath, "Object path is required");
+        Assert.hasText(login, "Authenticated user is required");
+        String bucket = storageService.getBucket();
+        File record = fileRepository.findByBucketAndObjectPathAndUserLogin(bucket, objectPath, login)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+
+        if (record.getExpiresAt() == null || !record.getExpiresAt().isAfter(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.GONE, "File has expired");
+        }
+
+        byte[] content = storageService.download(record.getObjectPath());
+        String contentType = record.getContentType() == null || record.getContentType().isBlank()
+                ? MediaType.APPLICATION_OCTET_STREAM_VALUE
+                : record.getContentType();
+        return new DownloadResult(record.getOriginalName(), contentType, content);
+    }
 
     public FileUploadResponseDTO upload(MultipartFile file, String login, int expirationDays, String password) {
         Assert.isTrue(expirationDays >= 1 && expirationDays <= 7,
@@ -76,6 +99,7 @@ public class FileService {
         }
         return new FileUploadResponseDTO(record.getOriginalName(), record.getSize(),
                 record.getContentType(), "stored", record.getId(), user.getId(),
-                record.getBucket(), record.getObjectPath());
+                record.getBucket(), record.getObjectPath(),
+                record.getPasswordHash() != null && !record.getPasswordHash().isBlank());
     }
 }

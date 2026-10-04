@@ -59,6 +59,26 @@ public class SupabaseStorageService {
         }
     }
 
+    public byte[] download(String path) {
+        requireConfigured();
+        try {
+            byte[] content = client.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/object/authenticated/{bucket}")
+                            .pathSegment(path.split("/"))
+                            .build(bucket))
+                    .retrieve()
+                    .body(byte[].class);
+
+            if (content == null) {
+                throw new StorageException("Supabase Storage returned no file content");
+            }
+            return content;
+        } catch (RestClientException exception) {
+            throw new StorageException("Supabase Storage download failed");
+        }
+    }
+
     public void delete(String path) {
         requireConfigured();
         try {
