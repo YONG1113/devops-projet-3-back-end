@@ -34,6 +34,7 @@ build/
 
 ### Local environment variables ###
 .env.local
+.env
 
 ### Local system variables ###
 .DS_Store

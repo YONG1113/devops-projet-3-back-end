@@ -24,12 +24,14 @@ public class FileController {
     public ResponseEntity<FileUploadResponseDTO> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "userId", required = false) Long userId,
+            @RequestParam(value = "expirationDays", defaultValue = "7") int expirationDays,
+            @RequestParam(value = "password", required = false) String password,
             Authentication authentication) {
         if (userId != null && (!(authentication.getPrincipal() instanceof User user)
                 || !userId.equals(user.getId()))) {
             return ResponseEntity.status(403).build();
         }
-        return ResponseEntity.ok(fileService.upload(file, authentication.getName()));
+        return ResponseEntity.ok(fileService.upload(file, authentication.getName(), expirationDays, password));
     }
 
 }
