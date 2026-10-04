@@ -28,18 +28,18 @@ class FileServiceTest {
     User user;
     MockMultipartFile file = new MockMultipartFile("file", "hello.txt", "text/plain", new byte[] { 1, 2 });
 
-    @BeforeEach
-    void setup() {
-        service = new FileService(users, files, storage);
-        user = new User();
-        user.setId(42L);
-        user.setLogin("user@example.com");
-    }
+    // @BeforeEach
+    // void setup() {
+    // service = new FileService(users, files, storage);
+    // user = new User();
+    // user.setId(42L);
+    // user.setLogin("user@example.com");
+    // }
 
-    void prepare() {
-        when(users.findByLogin(user.getLogin())).thenReturn(Optional.of(user));
-        when(storage.getBucket()).thenReturn("documents");
-    }
+    // void prepare() {
+    // when(users.findByLogin(user.getLogin())).thenReturn(Optional.of(user));
+    // when(storage.getBucket()).thenReturn("documents");
+    // }
 
     // @Test
     // void uploadsBeforeSavingMetadataWithAuthenticatedOwner() {

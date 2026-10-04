@@ -8,9 +8,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Service
@@ -20,8 +24,11 @@ public class FileService {
     private final UserRepository userRepository;
     private final FileRepository fileRepository;
     private final SupabaseStorageService storageService;
+    private final PasswordEncoder passwordEncoder;
 
-    public FileUploadResponseDTO upload(MultipartFile file, String login) {
+    public FileUploadResponseDTO upload(MultipartFile file, String login, int expirationDays, String password) {
+        Assert.isTrue(expirationDays >= 1 && expirationDays <= 7,
+                "Expiration must be between 1 and 7 days");
         Assert.hasText(login, "Authenticated user is required");
         Assert.notNull(file, "File is required");
         Assert.isTrue(!file.isEmpty(), "File must not be empty");
@@ -46,6 +53,14 @@ public class FileService {
         record.setObjectPath(path);
         record.setSize(file.getSize());
         record.setContentType(contentType);
+
+        record.setExpiresAt(
+                Instant.now().plus(expirationDays, ChronoUnit.DAYS));
+
+        record.setPasswordHash(
+                password == null || password.isEmpty()
+                        ? null
+                        : passwordEncoder.encode(password));
 
         storageService.upload(path, file, contentType);
         try {
