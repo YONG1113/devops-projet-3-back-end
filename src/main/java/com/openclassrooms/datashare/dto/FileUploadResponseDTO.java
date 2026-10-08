@@ -9,5 +9,6 @@ public record FileUploadResponseDTO(
                 Long userId,
                 String bucket,
                 String objectPath,
-                boolean isProtectPassword) {
+                boolean isProtectPassword,
+                String downloadToken) {
 }

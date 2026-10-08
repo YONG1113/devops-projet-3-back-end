@@ -27,6 +27,7 @@ public class FileService {
     private final FileRepository fileRepository;
     private final SupabaseStorageService storageService;
     private final PasswordEncoder passwordEncoder;
+    private final DownloadTokenService downloadTokenService;
 
     public record DownloadResult(String filename, String contentType, byte[] content) {
     }
@@ -47,6 +48,49 @@ public class FileService {
                 ? MediaType.APPLICATION_OCTET_STREAM_VALUE
                 : record.getContentType();
         return new DownloadResult(record.getOriginalName(), contentType, content);
+    }
+
+    public DownloadResult downloadWithToken(String token, String password) {
+        Assert.hasText(token, "token is required");
+        File record = fileRepository.findByDownloadTokenHash(token)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+        String bucket = storageService.getBucket();
+
+        if (record.getExpiresAt() == null || !record.getExpiresAt().isAfter(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.GONE, "File has expired");
+        }
+
+        if (record.getPasswordHash() != null) {
+            if (password == null ||
+                    !passwordEncoder.matches(password, record.getPasswordHash())) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Invalid download password");
+            }
+        }
+
+        byte[] content = storageService.download(record.getObjectPath());
+        String contentType = record.getContentType() == null || record.getContentType().isBlank()
+                ? MediaType.APPLICATION_OCTET_STREAM_VALUE
+                : record.getContentType();
+        return new DownloadResult(record.getOriginalName(), contentType, content);
+    }
+
+    public FileUploadResponseDTO getFileDetailByToken(String token) {
+        Assert.hasText(token, "token is required");
+        File record = fileRepository.findByDownloadTokenHash(token)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+        String bucket = storageService.getBucket();
+
+        if (record.getExpiresAt() == null || !record.getExpiresAt().isAfter(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.GONE, "File has expired");
+        }
+
+        return new FileUploadResponseDTO(record.getOriginalName(), record.getSize(),
+                record.getContentType(), "stored", record.getId(), record.getUser().getId(),
+                record.getBucket(), record.getObjectPath(),
+                record.getPasswordHash() != null && !record.getPasswordHash().isBlank(), record.getDownloadTokenHash());
+
     }
 
     public FileUploadResponseDTO upload(MultipartFile file, String login, int expirationDays, String password) {
@@ -85,6 +129,12 @@ public class FileService {
                         ? null
                         : passwordEncoder.encode(password));
 
+        String downloadToken = downloadTokenService.generateToken();
+        String tokenHash = downloadTokenService.hashToken(downloadToken);
+        record.setDownloadTokenHash(tokenHash);
+
+        record = fileRepository.saveAndFlush(record);
+
         storageService.upload(path, file, contentType);
         try {
             record = fileRepository.saveAndFlush(record);
@@ -100,6 +150,7 @@ public class FileService {
         return new FileUploadResponseDTO(record.getOriginalName(), record.getSize(),
                 record.getContentType(), "stored", record.getId(), user.getId(),
                 record.getBucket(), record.getObjectPath(),
-                record.getPasswordHash() != null && !record.getPasswordHash().isBlank());
+                record.getPasswordHash() != null && !record.getPasswordHash().isBlank(), record.getDownloadTokenHash());
     }
+
 }

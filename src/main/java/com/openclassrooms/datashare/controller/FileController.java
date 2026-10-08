@@ -68,4 +68,30 @@ public class FileController {
         return ResponseEntity.ok(fileService.upload(file, authentication.getName(), expirationDays, password));
     }
 
+    @GetMapping("/api/file/download")
+    public ResponseEntity<byte[]> downloadWithToken(
+            @RequestParam("token") String token,
+            @RequestParam(value = "password", required = false) String password) {
+        try {
+            var file = fileService.downloadWithToken(token, password);
+            String filename = file.filename().replaceAll("[\\r\\n]", "_");
+            return ResponseEntity.ok()
+                    .contentType(resolveMediaType(file.contentType()))
+                    .contentLength(file.content().length)
+                    .cacheControl(CacheControl.noStore())
+                    .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                            .filename(filename, StandardCharsets.UTF_8).build().toString())
+                    .body(file.content());
+        } catch (ResponseStatusException exception) {
+            // Preserve these statuses despite the existing catch-all exception handler.
+            return ResponseEntity.status(exception.getStatusCode()).build();
+        }
+    }
+
+    @GetMapping("/api/file/info")
+    public ResponseEntity<FileUploadResponseDTO> getFileInfoByToken(
+            @RequestParam("token") String token) {
+        return ResponseEntity.ok(fileService.getFileDetailByToken(token));
+    }
+
 }

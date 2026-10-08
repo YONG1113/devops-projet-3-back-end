@@ -46,4 +46,7 @@ public class File {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(name = "download_token_hash", nullable = false, unique = true, length = 64)
+    private String downloadTokenHash;
 }
