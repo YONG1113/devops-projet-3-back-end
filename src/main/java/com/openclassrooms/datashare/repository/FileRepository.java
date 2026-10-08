@@ -4,6 +4,7 @@ import com.openclassrooms.datashare.entities.File;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface FileRepository extends JpaRepository<File, Long> {
     Optional<File> findByBucketAndObjectPathAndUserLogin(
@@ -12,4 +13,6 @@ public interface FileRepository extends JpaRepository<File, Long> {
             String login);
 
     Optional<File> findByDownloadTokenHash(String downloadTokenHash);
+
+    List<File> findAllByUserLoginOrderByCreatedAtDesc(String login);
 }

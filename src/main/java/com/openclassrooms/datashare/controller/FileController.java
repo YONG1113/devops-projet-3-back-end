@@ -1,6 +1,7 @@
 package com.openclassrooms.datashare.controller;
 
 import com.openclassrooms.datashare.dto.FileUploadResponseDTO;
+import com.openclassrooms.datashare.dto.UserFileDTO;
 import com.openclassrooms.datashare.service.FileService;
 import com.openclassrooms.datashare.entities.User;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.http.CacheControl;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +27,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class FileController {
 
     private final FileService fileService;
+
+    @GetMapping("/api/files")
+    public ResponseEntity<List<UserFileDTO>> getAllFilesByUser(Authentication authentication) {
+        return ResponseEntity.ok(fileService.getAllFilesByUser(authentication.getName()));
+    }
 
     @GetMapping("/api/file")
     public ResponseEntity<byte[]> download(

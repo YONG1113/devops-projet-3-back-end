@@ -1,6 +1,7 @@
 package com.openclassrooms.datashare.service;
 
 import com.openclassrooms.datashare.dto.FileUploadResponseDTO;
+import com.openclassrooms.datashare.dto.UserFileDTO;
 import com.openclassrooms.datashare.entities.File;
 import com.openclassrooms.datashare.repository.FileRepository;
 import com.openclassrooms.datashare.repository.UserRepository;
@@ -18,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +32,25 @@ public class FileService {
     private final DownloadTokenService downloadTokenService;
 
     public record DownloadResult(String filename, String contentType, byte[] content) {
+    }
+
+    public List<UserFileDTO> getAllFilesByUser(String login) {
+        Assert.hasText(login, "Authenticated user is required");
+        userRepository.findByLogin(login)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        return fileRepository.findAllByUserLoginOrderByCreatedAtDesc(login)
+                .stream()
+                .map(record -> new UserFileDTO(
+                        record.getId(),
+                        record.getOriginalName(),
+                        record.getSize(),
+                        record.getContentType(),
+                        record.getObjectPath(),
+                        record.getExpiresAt(),
+                        record.getPasswordHash() != null && !record.getPasswordHash().isBlank(),
+                        record.getDownloadTokenHash()))
+                .toList();
     }
 
     public DownloadResult download(String objectPath, String login) {
