@@ -10,6 +10,8 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.CacheControl;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -31,6 +33,18 @@ public class FileController {
     @GetMapping("/api/files")
     public ResponseEntity<List<UserFileDTO>> getAllFilesByUser(Authentication authentication) {
         return ResponseEntity.ok(fileService.getAllFilesByUser(authentication.getName()));
+    }
+
+    @DeleteMapping("/api/file/{fileId}")
+    public ResponseEntity<Void> deleteFile(
+            @PathVariable Long fileId,
+            Authentication authentication) {
+        try {
+            fileService.deleteFile(fileId, authentication.getName());
+            return ResponseEntity.noContent().build();
+        } catch (ResponseStatusException exception) {
+            return ResponseEntity.status(exception.getStatusCode()).build();
+        }
     }
 
     @GetMapping("/api/file")

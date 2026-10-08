@@ -53,6 +53,18 @@ public class FileService {
                 .toList();
     }
 
+    public void deleteFile(Long fileId, String login) {
+        Assert.notNull(fileId, "File id is required");
+        Assert.isTrue(fileId > 0, "File id must be positive");
+        Assert.hasText(login, "Authenticated user is required");
+
+        File record = fileRepository.findByIdAndUserLogin(fileId, login)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+
+        storageService.delete(record.getObjectPath());
+        fileRepository.delete(record);
+    }
+
     public DownloadResult download(String objectPath, String login) {
         Assert.hasText(objectPath, "Object path is required");
         Assert.hasText(login, "Authenticated user is required");
