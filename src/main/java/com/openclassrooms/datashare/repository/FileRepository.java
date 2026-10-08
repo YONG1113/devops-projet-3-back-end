@@ -15,4 +15,6 @@ public interface FileRepository extends JpaRepository<File, Long> {
     Optional<File> findByDownloadTokenHash(String downloadTokenHash);
 
     List<File> findAllByUserLoginOrderByCreatedAtDesc(String login);
+
+    Optional<File> findByIdAndUserLogin(Long id, String login);
 }
