@@ -10,4 +10,6 @@ public interface FileRepository extends JpaRepository<File, Long> {
             String bucket,
             String objectPath,
             String login);
+
+    Optional<File> findByDownloadTokenHash(String downloadTokenHash);
 }

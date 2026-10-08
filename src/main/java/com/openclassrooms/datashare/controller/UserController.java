@@ -27,8 +27,6 @@ public class UserController {
 
     @GetMapping("/api/me")
     public Map<String, String> currentUser(@AuthenticationPrincipal User user) {
-        System.out.println("teststsssssssssssss");
-        System.out.println(user.getId().toString());
         return Map.of("id", user.getId().toString());
     }
 

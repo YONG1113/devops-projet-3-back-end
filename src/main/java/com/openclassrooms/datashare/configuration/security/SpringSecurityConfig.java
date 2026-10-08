@@ -52,7 +52,8 @@ public class SpringSecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         // No auth needed on :
                         .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/register", "/api/login").permitAll()
+                        .requestMatchers("/api/register", "/api/login", "/api/file/download", "/api/file/info")
+                        .permitAll()
                         // Others protected routes will be added here.
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
