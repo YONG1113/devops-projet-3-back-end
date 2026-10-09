@@ -7,6 +7,10 @@ import com.openclassrooms.datashare.repository.FileRepository;
 import com.openclassrooms.datashare.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.openclassrooms.datashare.service.DownloadTokenService;
+
+import com.openclassrooms.datashare.dto.FileDownloadResponseDTO;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -65,6 +69,29 @@ public class FileService {
         fileRepository.delete(record);
     }
 
+    public void cleanupExpiredFiles() {
+        List<File> expiredFiles = fileRepository
+                .findByExpiresAtLessThanEqualOrderByExpiresAtAsc(Instant.now());
+
+        for (File record : expiredFiles) {
+            String objectPath = record.getObjectPath();
+            try {
+                storageService.delete(objectPath);
+                record.setBucket(null);
+                record.setObjectPath(null);
+                record.setSize(null);
+                record.setContentType(null);
+                record.setPasswordHash(null);
+                record.setCreatedAt(null);
+                fileRepository.saveAndFlush(record);
+                log.info("Expired file {} was removed from storage", record.getId());
+            } catch (RuntimeException exception) {
+                log.error("Failed to clean up expired file {} at object {}",
+                        record.getId(), objectPath, exception);
+            }
+        }
+    }
+
     public DownloadResult download(String objectPath, String login) {
         Assert.hasText(objectPath, "Object path is required");
         Assert.hasText(login, "Authenticated user is required");
@@ -109,7 +136,7 @@ public class FileService {
         return new DownloadResult(record.getOriginalName(), contentType, content);
     }
 
-    public FileUploadResponseDTO getFileDetailByToken(String token) {
+    public FileDownloadResponseDTO getFileDetailByToken(String token) {
         Assert.hasText(token, "token is required");
         File record = fileRepository.findByDownloadTokenHash(token)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
@@ -119,10 +146,11 @@ public class FileService {
             throw new ResponseStatusException(HttpStatus.GONE, "File has expired");
         }
 
-        return new FileUploadResponseDTO(record.getOriginalName(), record.getSize(),
+        return new FileDownloadResponseDTO(record.getOriginalName(), record.getSize(),
                 record.getContentType(), "stored", record.getId(), record.getUser().getId(),
                 record.getBucket(), record.getObjectPath(),
-                record.getPasswordHash() != null && !record.getPasswordHash().isBlank(), record.getDownloadTokenHash());
+                record.getPasswordHash() != null && !record.getPasswordHash().isBlank(), record.getDownloadTokenHash(),
+                record.getExpiresAt());
 
     }
 

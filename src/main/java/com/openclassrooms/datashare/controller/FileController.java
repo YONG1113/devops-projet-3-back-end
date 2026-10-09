@@ -5,6 +5,8 @@ import com.openclassrooms.datashare.dto.UserFileDTO;
 import com.openclassrooms.datashare.service.FileService;
 import com.openclassrooms.datashare.entities.User;
 import lombok.RequiredArgsConstructor;
+import com.openclassrooms.datashare.dto.FileDownloadResponseDTO;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -110,7 +112,7 @@ public class FileController {
     }
 
     @GetMapping("/api/file/info")
-    public ResponseEntity<FileUploadResponseDTO> getFileInfoByToken(
+    public ResponseEntity<FileDownloadResponseDTO> getFileInfoByToken(
             @RequestParam("token") String token) {
         return ResponseEntity.ok(fileService.getFileDetailByToken(token));
     }
