@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 import java.util.List;
+import java.time.Instant;
 
 public interface FileRepository extends JpaRepository<File, Long> {
     Optional<File> findByBucketAndObjectPathAndUserLogin(
@@ -17,4 +18,6 @@ public interface FileRepository extends JpaRepository<File, Long> {
     List<File> findAllByUserLoginOrderByCreatedAtDesc(String login);
 
     Optional<File> findByIdAndUserLogin(Long id, String login);
+
+    List<File> findByExpiresAtLessThanEqualOrderByExpiresAtAsc(Instant expiresAt);
 }

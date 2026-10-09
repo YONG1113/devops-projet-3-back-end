@@ -25,14 +25,14 @@ public class File {
     @Column(name = "original_name", nullable = false)
     private String originalName;
 
-    @Column(nullable = false, columnDefinition = "text")
+    @Column(columnDefinition = "text")
     private String bucket;
 
-    @Column(name = "object_path", nullable = false, columnDefinition = "text")
+    @Column(name = "object_path", columnDefinition = "text")
     private String objectPath;
 
-    @Column(nullable = false)
-    private long size;
+    @Column
+    private Long size;
 
     @Column(name = "content_type")
     private String contentType;
@@ -44,7 +44,7 @@ public class File {
     private String passwordHash;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at")
     private Instant createdAt;
 
     @Column(name = "download_token_hash", nullable = false, unique = true, length = 64)

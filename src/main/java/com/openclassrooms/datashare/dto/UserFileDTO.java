@@ -5,7 +5,7 @@ import java.time.Instant;
 public record UserFileDTO(
         Long id,
         String filename,
-        long size,
+        Long size,
         String contentType,
         String objectPath,
         Instant expiresAt,
