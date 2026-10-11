@@ -64,7 +64,6 @@ public class FileController {
                             .filename(filename, StandardCharsets.UTF_8).build().toString())
                     .body(file.content());
         } catch (ResponseStatusException exception) {
-            // Preserve these statuses despite the existing catch-all exception handler.
             return ResponseEntity.status(exception.getStatusCode()).build();
         }
     }
@@ -106,7 +105,6 @@ public class FileController {
                             .filename(filename, StandardCharsets.UTF_8).build().toString())
                     .body(file.content());
         } catch (ResponseStatusException exception) {
-            // Preserve these statuses despite the existing catch-all exception handler.
             return ResponseEntity.status(exception.getStatusCode()).build();
         }
     }

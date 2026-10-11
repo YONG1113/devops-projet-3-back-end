@@ -10,113 +10,260 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class FileServiceTest {
-    @Mock
-    UserRepository users;
-    @Mock
-    FileRepository files;
-    @Mock
-    SupabaseStorageService storage;
-    FileService service;
-    User user;
-    MockMultipartFile file = new MockMultipartFile("file", "hello.txt", "text/plain", new byte[] { 1, 2 });
+    @Mock UserRepository users;
+    @Mock FileRepository files;
+    @Mock SupabaseStorageService storage;
+    @Mock PasswordEncoder passwordEncoder;
+    @Mock DownloadTokenService tokenService;
+    private FileService service;
+    private User user;
+    private MockMultipartFile multipart;
 
-    // @BeforeEach
-    // void setup() {
-    // service = new FileService(users, files, storage);
-    // user = new User();
-    // user.setId(42L);
-    // user.setLogin("user@example.com");
-    // }
+    @BeforeEach
+    void setUp() {
+        service = new FileService(users, files, storage, passwordEncoder, tokenService);
+        user = new User();
+        user.setId(42L);
+        user.setLogin("user@example.com");
+        multipart = new MockMultipartFile("file", "hello.txt", "text/plain", new byte[] { 1, 2 });
+    }
 
-    // void prepare() {
-    // when(users.findByLogin(user.getLogin())).thenReturn(Optional.of(user));
-    // when(storage.getBucket()).thenReturn("documents");
-    // }
+    @Test
+    void uploadStoresMetadataAndTheStorageObject() {
+        prepareUpload();
+        when(passwordEncoder.encode("secret")).thenReturn("encoded-password");
+        when(files.saveAndFlush(any(File.class))).thenAnswer(invocation -> {
+            File record = invocation.getArgument(0);
+            record.setId(10L);
+            return record;
+        });
 
-    // @Test
-    // void uploadsBeforeSavingMetadataWithAuthenticatedOwner() {
-    // prepare();
-    // when(files.saveAndFlush(any())).thenAnswer(call -> {
-    // File record = call.getArgument(0);
-    // record.setId(10L);
-    // return record;
-    // });
-    // var result = service.upload(file, user.getLogin());
-    // var order = inOrder(storage, files);
-    // order.verify(storage).getBucket();
-    // order.verify(storage).upload(eq(result.objectPath()), same(file),
-    // eq("text/plain"));
-    // var captor = ArgumentCaptor.forClass(File.class);
-    // order.verify(files).saveAndFlush(captor.capture());
-    // assertThat(captor.getValue().getUser()).isSameAs(user);
-    // assertThat(result.objectPath()).startsWith("users/42/");
-    // assertThat(result.id()).isEqualTo(10L);
-    // assertThat(result.status()).isEqualTo("stored");
-    // assertThat(result.filename()).isEqualTo("hello.txt");
-    // assertThat(result.size()).isEqualTo(2);
-    // assertThat(result.bucket()).isEqualTo("documents");
-    // }
+        var result = service.upload(multipart, user.getLogin(), 3, "secret");
 
-    // @Test
-    // void uploadFailureDoesNotWriteDatabase() {
-    // prepare();
-    // doThrow(new StorageException("upload
-    // failed")).when(storage).upload(anyString(), any(), anyString());
-    // assertThatThrownBy(() -> service.upload(file,
-    // user.getLogin())).isInstanceOf(StorageException.class);
-    // verifyNoInteractions(files);
-    // verify(storage, never()).delete(anyString());
-    // }
+        ArgumentCaptor<File> captor = ArgumentCaptor.forClass(File.class);
+        verify(files, times(2)).saveAndFlush(captor.capture());
+        File record = captor.getValue();
+        verify(storage).upload(eq(record.getObjectPath()), same(multipart), eq("text/plain"));
+        assertThat(record.getUser()).isSameAs(user);
+        assertThat(record.getObjectPath()).startsWith("users/42/");
+        assertThat(record.getPasswordHash()).isEqualTo("encoded-password");
+        assertThat(record.getDownloadTokenHash()).isEqualTo("hashed-token");
+        assertThat(result.id()).isEqualTo(10L);
+        assertThat(result.status()).isEqualTo("stored");
+    }
 
-    // @Test
-    // void databaseFailureRemovesUploadedObject() {
-    // prepare();
-    // var failure = new RuntimeException("database failed");
-    // when(files.saveAndFlush(any())).thenThrow(failure);
-    // assertThatThrownBy(() -> service.upload(file,
-    // user.getLogin())).isSameAs(failure);
-    // var path = ArgumentCaptor.forClass(String.class);
-    // verify(storage).upload(path.capture(), same(file), eq("text/plain"));
-    // verify(storage).delete(path.getValue());
-    // }
+    @Test
+    void uploadUsesBinaryContentTypeAndAllowsAnEmptyPassword() {
+        prepareUpload();
+        when(files.saveAndFlush(any(File.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        MockMultipartFile binary = new MockMultipartFile("file", "binary", null, new byte[] { 1 });
 
-    // @Test
-    // void cleanupFailurePreservesDatabaseFailure() {
-    // prepare();
-    // var failure = new RuntimeException("database failed");
-    // when(files.saveAndFlush(any())).thenThrow(failure);
-    // doThrow(new StorageException("cleanup
-    // failed")).when(storage).delete(anyString());
-    // assertThatThrownBy(() -> service.upload(file,
-    // user.getLogin())).isSameAs(failure);
-    // assertThat(failure.getSuppressed()).hasSize(1);
-    // }
+        var result = service.upload(binary, user.getLogin(), 7, "");
 
-    // @Test
-    // void rejectsEmptyFileAndUnknownUserBeforeStorage() {
-    // assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", new
-    // byte[0]), "user"))
-    // .isInstanceOf(IllegalArgumentException.class);
-    // when(users.findByLogin("unknown")).thenReturn(Optional.empty());
-    // assertThatThrownBy(() -> service.upload(file, "unknown"))
-    // .isInstanceOf(org.springframework.security.core.userdetails.UsernameNotFoundException.class);
-    // verifyNoInteractions(storage, files);
-    // }
+        assertThat(result.contentType()).isEqualTo("application/octet-stream");
+        assertThat(result.isProtectPassword()).isFalse();
+        verifyNoInteractions(passwordEncoder);
+    }
 
-    // @Test
-    // void missingContentTypeUsesBinaryDefault() {
-    // prepare();
-    // when(files.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
-    // var binary = new MockMultipartFile("file", "binary", null, new byte[] { 1 });
-    // assertThat(service.upload(binary,
-    // user.getLogin()).contentType()).isEqualTo("application/octet-stream");
-    // }
+    @Test
+    void uploadRejectsInvalidFilesBeforeStorageAccess() {
+        MultipartFile oversized = mock(MultipartFile.class);
+        when(oversized.isEmpty()).thenReturn(false);
+        when(oversized.getOriginalFilename()).thenReturn("large.zip");
+        when(oversized.getSize()).thenReturn(1024L * 1024 * 1024 + 1);
+
+        assertStatus(() -> service.upload(oversized, user.getLogin(), 7, null), HttpStatus.PAYLOAD_TOO_LARGE);
+        assertStatus(() -> service.upload(
+                new MockMultipartFile("file", "virus.EXE", "application/octet-stream", new byte[] { 1 }),
+                user.getLogin(), 7, null), HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", new byte[0]), user.getLogin(), 7, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(storage, files);
+    }
+
+    @Test
+    void uploadRejectsInvalidExpirationAndUnknownUser() {
+        assertThatThrownBy(() -> service.upload(multipart, user.getLogin(), 8, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        when(users.findByLogin(user.getLogin())).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.upload(multipart, user.getLogin(), 7, null))
+                .isInstanceOf(UsernameNotFoundException.class);
+    }
+
+    @Test
+    void getAllFilesMapsRepositoryRecords() {
+        File record = record(Instant.now().plusSeconds(60));
+        record.setPasswordHash("hash");
+        when(users.findByLogin(user.getLogin())).thenReturn(Optional.of(user));
+        when(files.findAllByUserLoginOrderByCreatedAtAsc(user.getLogin())).thenReturn(List.of(record));
+
+        var result = service.getAllFilesByUser(user.getLogin());
+
+        assertThat(result).singleElement().satisfies(dto -> {
+            assertThat(dto.filename()).isEqualTo("hello.txt");
+            assertThat(dto.isProtectPassword()).isTrue();
+        });
+    }
+
+    @Test
+    void getAllFilesRejectsAnUnknownUser() {
+        when(users.findByLogin("unknown")).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.getAllFilesByUser("unknown"))
+                .isInstanceOf(UsernameNotFoundException.class);
+        verifyNoInteractions(files);
+    }
+
+    @Test
+    void deleteRemovesStorageBeforeMetadata() {
+        File record = record(Instant.now().plusSeconds(60));
+        when(files.findByIdAndUserLogin(1L, user.getLogin())).thenReturn(Optional.of(record));
+
+        service.deleteFile(1L, user.getLogin());
+
+        var order = inOrder(storage, files);
+        order.verify(storage).delete("users/42/object");
+        order.verify(files).delete(record);
+    }
+
+    @Test
+    void deleteRejectsAnUnknownFile() {
+        when(files.findByIdAndUserLogin(99L, user.getLogin())).thenReturn(Optional.empty());
+        assertStatus(() -> service.deleteFile(99L, user.getLogin()), HttpStatus.NOT_FOUND);
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void cleanupClearsStorageMetadataButPreservesHistoryFields() {
+        File record = record(Instant.now().minusSeconds(60));
+        record.setPasswordHash("hash");
+        record.setCreatedAt(Instant.now().minusSeconds(120));
+        when(files.findByExpiresAtLessThanEqualOrderByExpiresAtAsc(any())).thenReturn(List.of(record));
+
+        service.cleanupExpiredFiles();
+
+        verify(storage).delete("users/42/object");
+        verify(files).saveAndFlush(record);
+        assertThat(record.getId()).isEqualTo(1L);
+        assertThat(record.getUser()).isSameAs(user);
+        assertThat(record.getOriginalName()).isEqualTo("hello.txt");
+        assertThat(record.getExpiresAt()).isNotNull();
+        assertThat(record.getDownloadTokenHash()).isEqualTo("hashed-token");
+        assertThat(record.getBucket()).isNull();
+        assertThat(record.getObjectPath()).isNull();
+        assertThat(record.getSize()).isNull();
+        assertThat(record.getPasswordHash()).isNull();
+    }
+
+    @Test
+    void cleanupContinuesWhenStorageDeletionFails() {
+        File record = record(Instant.now().minusSeconds(60));
+        when(files.findByExpiresAtLessThanEqualOrderByExpiresAtAsc(any())).thenReturn(List.of(record));
+        doThrow(new StorageException("failed")).when(storage).delete(record.getObjectPath());
+
+        service.cleanupExpiredFiles();
+
+        verify(files, never()).saveAndFlush(any());
+        assertThat(record.getObjectPath()).isEqualTo("users/42/object");
+    }
+
+    @Test
+    void downloadReturnsContentForAnOwnedActiveFile() {
+        File record = record(Instant.now().plusSeconds(60));
+        when(storage.getBucket()).thenReturn("documents");
+        when(files.findByBucketAndObjectPathAndUserLogin("documents", record.getObjectPath(), user.getLogin()))
+                .thenReturn(Optional.of(record));
+        when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1, 2 });
+
+        var result = service.download(record.getObjectPath(), user.getLogin());
+
+        assertThat(result.filename()).isEqualTo("hello.txt");
+        assertThat(result.content()).containsExactly(1, 2);
+    }
+
+    @Test
+    void downloadRejectsExpiredAndUnknownFiles() {
+        when(storage.getBucket()).thenReturn("documents");
+        when(files.findByBucketAndObjectPathAndUserLogin("documents", "missing", user.getLogin()))
+                .thenReturn(Optional.empty());
+        assertStatus(() -> service.download("missing", user.getLogin()), HttpStatus.NOT_FOUND);
+
+        File expired = record(Instant.now().minusSeconds(1));
+        when(files.findByBucketAndObjectPathAndUserLogin("documents", expired.getObjectPath(), user.getLogin()))
+                .thenReturn(Optional.of(expired));
+        assertStatus(() -> service.download(expired.getObjectPath(), user.getLogin()), HttpStatus.GONE);
+    }
+
+    @Test
+    void tokenDownloadChecksTheOptionalPassword() {
+        File record = record(Instant.now().plusSeconds(60));
+        record.setPasswordHash("password-hash");
+        when(files.findByDownloadTokenHash("token")).thenReturn(Optional.of(record));
+        when(storage.getBucket()).thenReturn("documents");
+        when(passwordEncoder.matches("secret", "password-hash")).thenReturn(true);
+        when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
+
+        assertThat(service.downloadWithToken("token", "secret").content()).containsExactly(1);
+        assertStatus(() -> service.downloadWithToken("token", null), HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void fileDetailsReturnArchivedInformationForAnExpiredFile() {
+        File record = record(Instant.now().minusSeconds(1));
+        when(files.findByDownloadTokenHash("token")).thenReturn(Optional.of(record));
+        when(storage.getBucket()).thenReturn("documents");
+
+        var result = service.getFileDetailByToken("token");
+
+        assertThat(result.status()).isEqualTo("expired");
+        assertThat(result.filename()).isEqualTo("hello.txt");
+        assertThat(result.size()).isNull();
+        assertThat(result.objectPath()).isNull();
+    }
+
+    private void prepareUpload() {
+        when(users.findByLogin(user.getLogin())).thenReturn(Optional.of(user));
+        when(storage.getBucket()).thenReturn("documents");
+        when(tokenService.generateToken()).thenReturn("raw-token");
+        when(tokenService.hashToken("raw-token")).thenReturn("hashed-token");
+    }
+
+    private File record(Instant expiresAt) {
+        File record = new File();
+        record.setId(1L);
+        record.setUser(user);
+        record.setOriginalName("hello.txt");
+        record.setBucket("documents");
+        record.setObjectPath("users/42/object");
+        record.setSize(2L);
+        record.setContentType("text/plain");
+        record.setExpiresAt(expiresAt);
+        record.setDownloadTokenHash("hashed-token");
+        return record;
+    }
+
+    private void assertStatus(ThrowingCallable callable, HttpStatus status) {
+        assertThatThrownBy(callable).isInstanceOfSatisfying(ResponseStatusException.class,
+                exception -> assertThat(exception.getStatusCode()).isEqualTo(status));
+    }
+
+    @FunctionalInterface
+    private interface ThrowingCallable extends org.assertj.core.api.ThrowableAssert.ThrowingCallable {
+    }
 }

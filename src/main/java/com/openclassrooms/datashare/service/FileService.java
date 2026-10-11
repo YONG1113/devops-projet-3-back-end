@@ -24,11 +24,16 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class FileService {
+    private static final long MAX_FILE_SIZE_BYTES = 1024L * 1024 * 1024;
+    private static final Set<String> FORBIDDEN_FILE_EXTENSIONS = Set.of("exe", "bat");
+
     private final UserRepository userRepository;
     private final FileRepository fileRepository;
     private final SupabaseStorageService storageService;
@@ -43,7 +48,7 @@ public class FileService {
         userRepository.findByLogin(login)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        return fileRepository.findAllByUserLoginOrderByCreatedAtDesc(login)
+        return fileRepository.findAllByUserLoginOrderByCreatedAtAsc(login)
                 .stream()
                 .map(record -> new UserFileDTO(
                         record.getId(),
@@ -142,8 +147,13 @@ public class FileService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
         String bucket = storageService.getBucket();
 
-        if (record.getExpiresAt() == null || !record.getExpiresAt().isAfter(Instant.now())) {
-            throw new ResponseStatusException(HttpStatus.GONE, "File has expired");
+        if (record.getExpiresAt() == null ||
+                !record.getExpiresAt().isAfter(Instant.now())) {
+            return new FileDownloadResponseDTO(record.getOriginalName(), null,
+                    null, "expired", record.getId(), record.getUser().getId(),
+                    null, null,
+                    null, record.getDownloadTokenHash(),
+                    record.getExpiresAt());
         }
 
         return new FileDownloadResponseDTO(record.getOriginalName(), record.getSize(),
@@ -163,6 +173,7 @@ public class FileService {
         String filename = file.getOriginalFilename();
         Assert.hasText(filename, "Filename is required");
         Assert.isTrue(filename.length() <= 255, "Filename is too long");
+        validateFile(file, filename);
         String contentType = file.getContentType();
         if (contentType == null || contentType.isBlank()) {
             contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
@@ -212,6 +223,26 @@ public class FileService {
                 record.getContentType(), "stored", record.getId(), user.getId(),
                 record.getBucket(), record.getObjectPath(),
                 record.getPasswordHash() != null && !record.getPasswordHash().isBlank(), record.getDownloadTokenHash());
+    }
+
+    private void validateFile(MultipartFile file, String filename) {
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new ResponseStatusException(
+                    HttpStatus.PAYLOAD_TOO_LARGE,
+                    "Maximum file size is 1 GB");
+        }
+
+        String normalizedFilename = filename.trim().toLowerCase(Locale.ROOT);
+        int extensionSeparator = normalizedFilename.lastIndexOf('.');
+        String extension = extensionSeparator >= 0
+                ? normalizedFilename.substring(extensionSeparator + 1)
+                : "";
+
+        if (FORBIDDEN_FILE_EXTENSIONS.contains(extension)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                    "Files with ." + extension + " extension are not allowed");
+        }
     }
 
 }
