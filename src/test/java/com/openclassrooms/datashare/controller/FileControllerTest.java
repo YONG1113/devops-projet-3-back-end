@@ -1,18 +1,32 @@
 package com.openclassrooms.datashare.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclassrooms.datashare.dto.FileDownloadResponseDTO;
 import com.openclassrooms.datashare.dto.FileUploadResponseDTO;
 import com.openclassrooms.datashare.dto.UserFileDTO;
 import com.openclassrooms.datashare.entities.User;
+import com.openclassrooms.datashare.repository.FileRepository;
+import com.openclassrooms.datashare.repository.UserRepository;
 import com.openclassrooms.datashare.service.FileService;
+import com.openclassrooms.datashare.service.SupabaseStorageService;
+import com.openclassrooms.datashare.support.PostgreSQLIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -21,6 +35,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
 class FileControllerTest {
@@ -125,5 +144,91 @@ class FileControllerTest {
                 1L, 42L, "files", "path", false, "token", Instant.now());
         when(fileService.getFileDetailByToken("token")).thenReturn(dto);
         assertThat(controller.getFileInfoByToken("token").getBody()).isEqualTo(dto);
+    }
+
+    @Nested
+    @SpringBootTest
+    @AutoConfigureMockMvc
+    @Transactional
+    class IntegrationTests extends PostgreSQLIntegrationTest {
+
+        @Autowired MockMvc mockMvc;
+        @Autowired ObjectMapper objectMapper;
+        @Autowired UserRepository integrationUserRepository;
+        @Autowired FileRepository integrationFileRepository;
+        @Autowired PasswordEncoder integrationPasswordEncoder;
+
+        @MockitoBean
+        SupabaseStorageService integrationStorageService;
+
+        private User integrationUser;
+        private String authorization;
+
+        @BeforeEach
+        void setUpIntegrationTest() throws Exception {
+            integrationUser = new User();
+            integrationUser.setLogin("file-owner@example.com");
+            integrationUser.setPassword(integrationPasswordEncoder.encode("password123"));
+            integrationUser = integrationUserRepository.saveAndFlush(integrationUser);
+            when(integrationStorageService.getBucket()).thenReturn("documents");
+            authorization = "Bearer " + login(integrationUser.getLogin(), "password123");
+        }
+
+        @Test
+        void integrationTestUploadsListsAndDeletesAnOwnedFile() throws Exception {
+            MockMultipartFile multipartFile = new MockMultipartFile(
+                    "file", "report.txt", "text/plain", "integration content".getBytes());
+
+            String uploadBody = mockMvc.perform(multipart("/api/file")
+                            .file(multipartFile)
+                            .param("userId", integrationUser.getId().toString())
+                            .param("expirationDays", "3")
+                            .header("Authorization", authorization))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.filename").value("report.txt"))
+                    .andExpect(jsonPath("$.status").value("stored"))
+                    .andExpect(jsonPath("$.userId").value(integrationUser.getId()))
+                    .andReturn().getResponse().getContentAsString();
+
+            JsonNode upload = objectMapper.readTree(uploadBody);
+            long fileId = upload.get("id").asLong();
+            String objectPath = upload.get("objectPath").asText();
+            assertThat(integrationFileRepository.findById(fileId)).isPresent();
+            verify(integrationStorageService).upload(eq(objectPath), any(), eq("text/plain"));
+
+            mockMvc.perform(get("/api/files").header("Authorization", authorization))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].id").value(fileId))
+                    .andExpect(jsonPath("$[0].filename").value("report.txt"));
+
+            mockMvc.perform(delete("/api/file/{fileId}", fileId)
+                            .header("Authorization", authorization))
+                    .andExpect(status().isNoContent());
+
+            verify(integrationStorageService).delete(objectPath);
+            assertThat(integrationFileRepository.findById(fileId)).isEmpty();
+        }
+
+        @Test
+        void integrationTestRejectsFileOperationsWithoutAuthentication() throws Exception {
+            MockMultipartFile multipartFile = new MockMultipartFile(
+                    "file", "report.txt", "text/plain", new byte[] { 1 });
+
+            mockMvc.perform(multipart("/api/file").file(multipartFile))
+                    .andExpect(status().isUnauthorized());
+            mockMvc.perform(get("/api/files"))
+                    .andExpect(status().isUnauthorized());
+            mockMvc.perform(delete("/api/file/{fileId}", 1L))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        private String login(String login, String password) throws Exception {
+            return mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post("/api/login")
+                            .contentType("application/json")
+                            .content("{\"login\":\"" + login + "\",\"password\":\"" + password + "\"}"))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+        }
     }
 }

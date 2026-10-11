@@ -1,6 +1,7 @@
 package com.openclassrooms.datashare.repository;
 
 import com.openclassrooms.datashare.entities.User;
+import com.openclassrooms.datashare.support.PostgreSQLIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -12,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-class UserRepositoryTest extends PostgreSQLRepositoryTest {
+class UserRepositoryTest extends PostgreSQLIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
