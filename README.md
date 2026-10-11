@@ -43,6 +43,7 @@ Point d'entrée : `dataShareBackEndApplication`. Port HTTP par défaut : 8080.
 sh mvnw clean verify
 ```
 
-Les tests d'intégration conservent leur base MySQL temporaire via Testcontainers
-et nécessitent Docker. Le pilote MySQL est limité au périmètre de test.
+Les tests d'intégration utilisent une base PostgreSQL 17 temporaire via
+Testcontainers et nécessitent Docker. Testcontainers est limité au périmètre
+de test : un démarrage normal avec `spring-boot:run` ne lance aucun conteneur.
 Ces tests ne se connectent pas à Supabase.
