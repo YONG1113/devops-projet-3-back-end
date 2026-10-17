@@ -40,6 +40,15 @@ public class FileController {
 
     private final FileService fileService;
 
+    @Operation(summary = "Consulter les métadonnées d'un fichier par son identifiant")
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/api/file/{fileId}")
+    public ResponseEntity<UserFileDTO> getFileById(
+            @Parameter(description = "Identifiant du fichier", required = true) @PathVariable Long fileId,
+            @Parameter(hidden = true) Authentication authentication) {
+        return ResponseEntity.ok(fileService.getFileById(fileId, authentication.getName()));
+    }
+
     @Operation(summary = "Lister les fichiers de l'utilisateur connecté")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/api/files")
@@ -62,13 +71,11 @@ public class FileController {
         }
     }
 
-    @Operation(summary = "Télécharger un fichier par son chemin de stockage",
-            description = "Télécharge un fichier appartenant à l'utilisateur connecté.")
+    @Operation(summary = "Télécharger un fichier par son chemin de stockage", description = "Télécharge un fichier appartenant à l'utilisateur connecté.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/api/file")
     public ResponseEntity<byte[]> download(
-            @Parameter(description = "Chemin de l'objet dans le bucket", required = true)
-            @RequestParam("objectPath") String objectPath,
+            @Parameter(description = "Chemin de l'objet dans le bucket", required = true) @RequestParam("objectPath") String objectPath,
             @Parameter(hidden = true) Authentication authentication) {
         try {
             var file = fileService.download(objectPath, authentication.getName());
@@ -93,19 +100,14 @@ public class FileController {
         }
     }
 
-    @Operation(summary = "Téléverser un fichier",
-            description = "Conserve un fichier pendant 1 à 7 jours avec un mot de passe facultatif.")
+    @Operation(summary = "Téléverser un fichier", description = "Conserve un fichier pendant 1 à 7 jours avec un mot de passe facultatif.")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping(value = "/api/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<FileUploadResponseDTO> upload(
-            @Parameter(description = "Fichier à téléverser", required = true)
-            @RequestParam("file") MultipartFile file,
-            @Parameter(description = "Identifiant facultatif de l'utilisateur connecté")
-            @RequestParam(value = "userId", required = false) Long userId,
-            @Parameter(description = "Durée de conservation en jours, entre 1 et 7")
-            @RequestParam(value = "expirationDays", defaultValue = "7") int expirationDays,
-            @Parameter(description = "Mot de passe de téléchargement facultatif")
-            @RequestParam(value = "password", required = false) String password,
+            @Parameter(description = "Fichier à téléverser", required = true) @RequestParam("file") MultipartFile file,
+            @Parameter(description = "Identifiant facultatif de l'utilisateur connecté") @RequestParam(value = "userId", required = false) Long userId,
+            @Parameter(description = "Durée de conservation en jours, entre 1 et 7") @RequestParam(value = "expirationDays", defaultValue = "7") int expirationDays,
+            @Parameter(description = "Mot de passe de téléchargement facultatif") @RequestParam(value = "password", required = false) String password,
             @Parameter(hidden = true) Authentication authentication) {
         if (userId != null && (!(authentication.getPrincipal() instanceof User user)
                 || !userId.equals(user.getId()))) {
@@ -114,8 +116,7 @@ public class FileController {
         return ResponseEntity.ok(fileService.upload(file, authentication.getName(), expirationDays, password));
     }
 
-    @Operation(summary = "Télécharger un fichier avec un jeton public",
-            description = "Reçoit le jeton et le mot de passe facultatif dans un corps JSON afin de ne pas exposer le mot de passe dans l'URL.")
+    @Operation(summary = "Télécharger un fichier avec un jeton public", description = "Reçoit le jeton et le mot de passe facultatif dans un corps JSON afin de ne pas exposer le mot de passe dans l'URL.")
     @PostMapping(value = "/api/file/download", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<byte[]> downloadWithToken(
             @Valid @RequestBody FileDownloadRequestDTO request) {
@@ -137,8 +138,7 @@ public class FileController {
     @Operation(summary = "Consulter les informations d'un fichier avec un jeton public")
     @GetMapping("/api/file/info")
     public ResponseEntity<FileDownloadResponseDTO> getFileInfoByToken(
-            @Parameter(description = "Jeton public de téléchargement", required = true)
-            @RequestParam("token") String token) {
+            @Parameter(description = "Jeton public de téléchargement", required = true) @RequestParam("token") String token) {
         return ResponseEntity.ok(fileService.getFileDetailByToken(token));
     }
 

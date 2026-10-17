@@ -61,6 +61,24 @@ public class FileService {
                 .toList();
     }
 
+    public UserFileDTO getFileById(Long fileId, String login) {
+        Assert.notNull(fileId, "File id is required");
+        Assert.isTrue(fileId > 0, "File id must be positive");
+        Assert.hasText(login, "Authenticated user is required");
+
+        File record = fileRepository.findByIdAndUserLogin(fileId, login)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+
+        return new UserFileDTO(
+                record.getId(),
+                record.getOriginalName(),
+                record.getSize(),
+                record.getContentType(),
+                record.getObjectPath(),
+                record.getExpiresAt(),
+                record.getPasswordHash() != null && !record.getPasswordHash().isBlank());
+    }
+
     public void deleteFile(Long fileId, String login) {
         Assert.notNull(fileId, "File id is required");
         Assert.isTrue(fileId > 0, "File id must be positive");
