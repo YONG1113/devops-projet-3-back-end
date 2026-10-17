@@ -123,6 +123,20 @@ class FileServiceTest {
     }
 
     @Test
+    void getAllFilesMarksAFileWithoutPasswordAsUnprotected() {
+        File record = record(Instant.now().plusSeconds(60));
+        record.setPasswordHash(null);
+        when(users.findByLogin(user.getLogin())).thenReturn(Optional.of(user));
+        when(files.findAllByUserLoginOrderByCreatedAtAsc(user.getLogin())).thenReturn(List.of(record));
+
+        var result = service.getAllFilesByUser(user.getLogin());
+
+        assertThat(result).singleElement()
+                .extracting(dto -> dto.isProtectPassword())
+                .isEqualTo(false);
+    }
+
+    @Test
     void getAllFilesRejectsAnUnknownUser() {
         when(users.findByLogin("unknown")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.getAllFilesByUser("unknown"))
@@ -147,6 +161,14 @@ class FileServiceTest {
         when(files.findByIdAndUserLogin(99L, user.getLogin())).thenReturn(Optional.empty());
         assertStatus(() -> service.deleteFile(99L, user.getLogin()), HttpStatus.NOT_FOUND);
         verifyNoInteractions(storage);
+    }
+
+    @Test
+    void deleteRejectsANonPositiveFileIdBeforeRepositoryAccess() {
+        assertThatThrownBy(() -> service.deleteFile(0L, user.getLogin()))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(files, storage);
     }
 
     @Test
@@ -211,6 +233,31 @@ class FileServiceTest {
     }
 
     @Test
+    void downloadRejectsAFileWithoutExpiration() {
+        File record = record(null);
+        when(storage.getBucket()).thenReturn("documents");
+        when(files.findByBucketAndObjectPathAndUserLogin("documents", record.getObjectPath(), user.getLogin()))
+                .thenReturn(Optional.of(record));
+
+        assertStatus(() -> service.download(record.getObjectPath(), user.getLogin()), HttpStatus.GONE);
+        verify(storage, never()).download(anyString());
+    }
+
+    @Test
+    void downloadUsesTheBinaryContentTypeWhenMetadataIsBlank() {
+        File record = record(Instant.now().plusSeconds(60));
+        record.setContentType(" ");
+        when(storage.getBucket()).thenReturn("documents");
+        when(files.findByBucketAndObjectPathAndUserLogin("documents", record.getObjectPath(), user.getLogin()))
+                .thenReturn(Optional.of(record));
+        when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
+
+        var result = service.download(record.getObjectPath(), user.getLogin());
+
+        assertThat(result.contentType()).isEqualTo("application/octet-stream");
+    }
+
+    @Test
     void tokenDownloadChecksTheOptionalPassword() {
         File record = record(Instant.now().plusSeconds(60));
         record.setPasswordHash("password-hash");
@@ -221,6 +268,36 @@ class FileServiceTest {
 
         assertThat(service.downloadWithToken("token", "secret").content()).containsExactly(1);
         assertStatus(() -> service.downloadWithToken("token", null), HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void tokenDownloadAllowsAnUnprotectedFileAndUsesTheBinaryContentType() {
+        File record = record(Instant.now().plusSeconds(60));
+        record.setPasswordHash(null);
+        record.setContentType(null);
+        when(files.findByDownloadTokenHash("token")).thenReturn(Optional.of(record));
+        when(storage.getBucket()).thenReturn("documents");
+        when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
+
+        var result = service.downloadWithToken("token", null);
+
+        assertThat(result.contentType()).isEqualTo("application/octet-stream");
+        verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    void tokenDownloadRejectsAnExpiredFileAndAnIncorrectPassword() {
+        File expired = record(Instant.now().minusSeconds(1));
+        File protectedRecord = record(Instant.now().plusSeconds(60));
+        protectedRecord.setPasswordHash("password-hash");
+        when(files.findByDownloadTokenHash("expired")).thenReturn(Optional.of(expired));
+        when(files.findByDownloadTokenHash("protected")).thenReturn(Optional.of(protectedRecord));
+        when(storage.getBucket()).thenReturn("documents");
+        when(passwordEncoder.matches("wrong", "password-hash")).thenReturn(false);
+
+        assertStatus(() -> service.downloadWithToken("expired", null), HttpStatus.GONE);
+        assertStatus(() -> service.downloadWithToken("protected", "wrong"), HttpStatus.FORBIDDEN);
+        verify(storage, never()).download(anyString());
     }
 
     @Test
@@ -235,6 +312,47 @@ class FileServiceTest {
         assertThat(result.filename()).isEqualTo("hello.txt");
         assertThat(result.size()).isNull();
         assertThat(result.objectPath()).isNull();
+    }
+
+    @Test
+    void fileDetailsReturnActiveInformationAndPasswordProtection() {
+        File record = record(Instant.now().plusSeconds(60));
+        record.setPasswordHash("password-hash");
+        when(files.findByDownloadTokenHash("token")).thenReturn(Optional.of(record));
+        when(storage.getBucket()).thenReturn("documents");
+
+        var result = service.getFileDetailByToken("token");
+
+        assertThat(result.status()).isEqualTo("stored");
+        assertThat(result.objectPath()).isEqualTo("users/42/object");
+        assertThat(result.isProtectPassword()).isTrue();
+    }
+
+    @Test
+    void fileDetailsTreatAFileWithoutExpirationAsExpired() {
+        File record = record(null);
+        when(files.findByDownloadTokenHash("token")).thenReturn(Optional.of(record));
+        when(storage.getBucket()).thenReturn("documents");
+
+        var result = service.getFileDetailByToken("token");
+
+        assertThat(result.status()).isEqualTo("expired");
+        assertThat(result.expiresAt()).isNull();
+    }
+
+    @Test
+    void uploadRejectsAnOverlongFilenameAndContentType() {
+        String longFilename = "a".repeat(252) + ".txt";
+        MockMultipartFile invalidName = new MockMultipartFile(
+                "file", longFilename, "text/plain", new byte[] { 1 });
+        MockMultipartFile invalidContentType = new MockMultipartFile(
+                "file", "hello.txt", "x".repeat(256), new byte[] { 1 });
+
+        assertThatThrownBy(() -> service.upload(invalidName, user.getLogin(), 7, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.upload(invalidContentType, user.getLogin(), 7, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(files, storage);
     }
 
     private void prepareUpload() {
