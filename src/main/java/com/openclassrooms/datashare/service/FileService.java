@@ -114,7 +114,7 @@ public class FileService {
         }
     }
 
-    public DownloadResult download(String objectPath, String login) {
+    public DownloadResult download(String objectPath, String login, String password) {
         Assert.hasText(objectPath, "Object path is required");
         Assert.hasText(login, "Authenticated user is required");
         String bucket = storageService.getBucket();
@@ -124,6 +124,8 @@ public class FileService {
         if (record.getExpiresAt() == null || !record.getExpiresAt().isAfter(Instant.now())) {
             throw new ResponseStatusException(HttpStatus.GONE, "File has expired");
         }
+
+        validateDownloadPassword(record, password);
 
         byte[] content = storageService.download(record.getObjectPath());
         String contentType = record.getContentType() == null || record.getContentType().isBlank()
@@ -143,14 +145,7 @@ public class FileService {
             throw new ResponseStatusException(HttpStatus.GONE, "File has expired");
         }
 
-        if (record.getPasswordHash() != null) {
-            if (password == null ||
-                    !passwordEncoder.matches(password, record.getPasswordHash())) {
-                throw new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Invalid download password");
-            }
-        }
+        validateDownloadPassword(record, password);
 
         byte[] content = storageService.download(record.getObjectPath());
         String contentType = record.getContentType() == null || record.getContentType().isBlank()
@@ -261,6 +256,13 @@ public class FileService {
             throw new ResponseStatusException(
                     HttpStatus.UNSUPPORTED_MEDIA_TYPE,
                     "Files with ." + extension + " extension are not allowed");
+        }
+    }
+
+    private void validateDownloadPassword(File record, String password) {
+        if (record.getPasswordHash() != null
+                && (password == null || !passwordEncoder.matches(password, record.getPasswordHash()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid download password");
         }
     }
 

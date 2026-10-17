@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclassrooms.datashare.dto.FileDownloadResponseDTO;
 import com.openclassrooms.datashare.dto.FileDownloadRequestDTO;
+import com.openclassrooms.datashare.dto.FileObjectPathDownloadRequestDTO;
 import com.openclassrooms.datashare.dto.FileUploadResponseDTO;
 import com.openclassrooms.datashare.dto.UserFileDTO;
 import com.openclassrooms.datashare.entities.User;
@@ -98,10 +99,11 @@ class FileControllerTest {
 
     @Test
     void downloadsAnOwnedFileAsAnAttachment() {
-        when(fileService.download("users/42/file", user.getLogin()))
+        when(fileService.download("users/42/file", user.getLogin(), "secret"))
                 .thenReturn(new FileService.DownloadResult("report.txt", "text/plain", new byte[] { 1, 2 }));
 
-        var response = controller.download("users/42/file", authentication);
+        var response = controller.download(
+                new FileObjectPathDownloadRequestDTO("users/42/file", "secret"), authentication);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().getContentType().toString()).isEqualTo("text/plain");
@@ -111,8 +113,10 @@ class FileControllerTest {
 
     @Test
     void downloadPropagatesTheServiceStatus() {
-        when(fileService.download(any(), any())).thenThrow(new ResponseStatusException(HttpStatus.GONE));
-        assertThat(controller.download("path", authentication).getStatusCode()).isEqualTo(HttpStatus.GONE);
+        when(fileService.download(any(), any(), any())).thenThrow(new ResponseStatusException(HttpStatus.GONE));
+        assertThat(controller.download(
+                new FileObjectPathDownloadRequestDTO("path", null), authentication).getStatusCode())
+                .isEqualTo(HttpStatus.GONE);
     }
 
     @Test
