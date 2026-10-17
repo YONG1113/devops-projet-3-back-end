@@ -61,7 +61,7 @@ class FileControllerTest {
     @Test
     void listsFilesForTheAuthenticatedUser() {
         UserFileDTO file = new UserFileDTO(1L, "file.txt", 2L, "text/plain", "path",
-                Instant.now().plusSeconds(60), false, "token");
+                Instant.now().plusSeconds(60), false);
         when(fileService.getAllFilesByUser(user.getLogin())).thenReturn(List.of(file));
 
         var response = controller.getAllFilesByUser(authentication);
@@ -143,7 +143,7 @@ class FileControllerTest {
     @Test
     void returnsFileInformationByToken() {
         FileDownloadResponseDTO dto = new FileDownloadResponseDTO("file.txt", 1L, "text/plain", "stored",
-                1L, 42L, "files", "path", false, "token", Instant.now());
+                1L, 42L, "files", "path", false, Instant.now());
         when(fileService.getFileDetailByToken("token")).thenReturn(dto);
         assertThat(controller.getFileInfoByToken("token").getBody()).isEqualTo(dto);
     }

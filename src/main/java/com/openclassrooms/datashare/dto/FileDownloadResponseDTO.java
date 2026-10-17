@@ -11,6 +11,5 @@ public record FileDownloadResponseDTO(String filename,
         String bucket,
         String objectPath,
         Boolean isProtectPassword,
-        String downloadToken,
         Instant expiresAt) {
 }

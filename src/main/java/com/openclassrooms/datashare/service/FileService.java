@@ -57,8 +57,7 @@ public class FileService {
                         record.getContentType(),
                         record.getObjectPath(),
                         record.getExpiresAt(),
-                        record.getPasswordHash() != null && !record.getPasswordHash().isBlank(),
-                        record.getDownloadTokenHash()))
+                        record.getPasswordHash() != null && !record.getPasswordHash().isBlank()))
                 .toList();
     }
 
@@ -117,7 +116,8 @@ public class FileService {
 
     public DownloadResult downloadWithToken(String token, String password) {
         Assert.hasText(token, "token is required");
-        File record = fileRepository.findByDownloadTokenHash(token)
+        String tokenHash = downloadTokenService.hashToken(token);
+        File record = fileRepository.findByDownloadTokenHash(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
         String bucket = storageService.getBucket();
 
@@ -143,7 +143,8 @@ public class FileService {
 
     public FileDownloadResponseDTO getFileDetailByToken(String token) {
         Assert.hasText(token, "token is required");
-        File record = fileRepository.findByDownloadTokenHash(token)
+        String tokenHash = downloadTokenService.hashToken(token);
+        File record = fileRepository.findByDownloadTokenHash(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
         String bucket = storageService.getBucket();
 
@@ -152,14 +153,14 @@ public class FileService {
             return new FileDownloadResponseDTO(record.getOriginalName(), null,
                     null, "expired", record.getId(), record.getUser().getId(),
                     null, null,
-                    null, record.getDownloadTokenHash(),
+                    null,
                     record.getExpiresAt());
         }
 
         return new FileDownloadResponseDTO(record.getOriginalName(), record.getSize(),
                 record.getContentType(), "stored", record.getId(), record.getUser().getId(),
                 record.getBucket(), record.getObjectPath(),
-                record.getPasswordHash() != null && !record.getPasswordHash().isBlank(), record.getDownloadTokenHash(),
+                record.getPasswordHash() != null && !record.getPasswordHash().isBlank(),
                 record.getExpiresAt());
 
     }
@@ -222,7 +223,7 @@ public class FileService {
         return new FileUploadResponseDTO(record.getOriginalName(), record.getSize(),
                 record.getContentType(), "stored", record.getId(), user.getId(),
                 record.getBucket(), record.getObjectPath(),
-                record.getPasswordHash() != null && !record.getPasswordHash().isBlank(), record.getDownloadTokenHash());
+                record.getPasswordHash() != null && !record.getPasswordHash().isBlank(), downloadToken);
     }
 
     private void validateFile(MultipartFile file, String filename) {

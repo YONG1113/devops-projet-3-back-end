@@ -67,6 +67,7 @@ class FileServiceTest {
         assertThat(record.getDownloadTokenHash()).isEqualTo("hashed-token");
         assertThat(result.id()).isEqualTo(10L);
         assertThat(result.status()).isEqualTo("stored");
+        assertThat(result.downloadToken()).isEqualTo("raw-token");
     }
 
     @Test
@@ -261,7 +262,8 @@ class FileServiceTest {
     void tokenDownloadChecksTheOptionalPassword() {
         File record = record(Instant.now().plusSeconds(60));
         record.setPasswordHash("password-hash");
-        when(files.findByDownloadTokenHash("token")).thenReturn(Optional.of(record));
+        when(tokenService.hashToken("token")).thenReturn("hashed-token");
+        when(files.findByDownloadTokenHash("hashed-token")).thenReturn(Optional.of(record));
         when(storage.getBucket()).thenReturn("documents");
         when(passwordEncoder.matches("secret", "password-hash")).thenReturn(true);
         when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
@@ -275,7 +277,8 @@ class FileServiceTest {
         File record = record(Instant.now().plusSeconds(60));
         record.setPasswordHash(null);
         record.setContentType(null);
-        when(files.findByDownloadTokenHash("token")).thenReturn(Optional.of(record));
+        when(tokenService.hashToken("token")).thenReturn("hashed-token");
+        when(files.findByDownloadTokenHash("hashed-token")).thenReturn(Optional.of(record));
         when(storage.getBucket()).thenReturn("documents");
         when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
 
@@ -290,8 +293,10 @@ class FileServiceTest {
         File expired = record(Instant.now().minusSeconds(1));
         File protectedRecord = record(Instant.now().plusSeconds(60));
         protectedRecord.setPasswordHash("password-hash");
-        when(files.findByDownloadTokenHash("expired")).thenReturn(Optional.of(expired));
-        when(files.findByDownloadTokenHash("protected")).thenReturn(Optional.of(protectedRecord));
+        when(tokenService.hashToken("expired")).thenReturn("hashed-expired");
+        when(tokenService.hashToken("protected")).thenReturn("hashed-protected");
+        when(files.findByDownloadTokenHash("hashed-expired")).thenReturn(Optional.of(expired));
+        when(files.findByDownloadTokenHash("hashed-protected")).thenReturn(Optional.of(protectedRecord));
         when(storage.getBucket()).thenReturn("documents");
         when(passwordEncoder.matches("wrong", "password-hash")).thenReturn(false);
 
@@ -303,7 +308,8 @@ class FileServiceTest {
     @Test
     void fileDetailsReturnArchivedInformationForAnExpiredFile() {
         File record = record(Instant.now().minusSeconds(1));
-        when(files.findByDownloadTokenHash("token")).thenReturn(Optional.of(record));
+        when(tokenService.hashToken("token")).thenReturn("hashed-token");
+        when(files.findByDownloadTokenHash("hashed-token")).thenReturn(Optional.of(record));
         when(storage.getBucket()).thenReturn("documents");
 
         var result = service.getFileDetailByToken("token");
@@ -318,7 +324,8 @@ class FileServiceTest {
     void fileDetailsReturnActiveInformationAndPasswordProtection() {
         File record = record(Instant.now().plusSeconds(60));
         record.setPasswordHash("password-hash");
-        when(files.findByDownloadTokenHash("token")).thenReturn(Optional.of(record));
+        when(tokenService.hashToken("token")).thenReturn("hashed-token");
+        when(files.findByDownloadTokenHash("hashed-token")).thenReturn(Optional.of(record));
         when(storage.getBucket()).thenReturn("documents");
 
         var result = service.getFileDetailByToken("token");
@@ -331,7 +338,8 @@ class FileServiceTest {
     @Test
     void fileDetailsTreatAFileWithoutExpirationAsExpired() {
         File record = record(null);
-        when(files.findByDownloadTokenHash("token")).thenReturn(Optional.of(record));
+        when(tokenService.hashToken("token")).thenReturn("hashed-token");
+        when(files.findByDownloadTokenHash("hashed-token")).thenReturn(Optional.of(record));
         when(storage.getBucket()).thenReturn("documents");
 
         var result = service.getFileDetailByToken("token");
