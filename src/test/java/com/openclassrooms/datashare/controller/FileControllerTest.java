@@ -70,6 +70,19 @@ class FileControllerTest {
     }
 
     @Test
+    void returnsAnOwnedFileById() {
+        UserFileDTO file = new UserFileDTO(1L, "file.txt", 2L, "text/plain", "path",
+                Instant.now().plusSeconds(60), false);
+        when(fileService.getFileById(1L, user.getLogin())).thenReturn(file);
+
+        var response = controller.getFileById(1L, authentication);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(file);
+        verify(fileService).getFileById(1L, user.getLogin());
+    }
+
+    @Test
     void deletesAnOwnedFile() {
         var response = controller.deleteFile(1L, authentication);
         verify(fileService).deleteFile(1L, user.getLogin());
@@ -203,6 +216,13 @@ class FileControllerTest {
                     .andExpect(jsonPath("$[0].id").value(fileId))
                     .andExpect(jsonPath("$[0].filename").value("report.txt"));
 
+            mockMvc.perform(get("/api/file/{fileId}", fileId)
+                            .header("Authorization", authorization))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(fileId))
+                    .andExpect(jsonPath("$.filename").value("report.txt"))
+                    .andExpect(jsonPath("$.objectPath").value(objectPath));
+
             mockMvc.perform(delete("/api/file/{fileId}", fileId)
                             .header("Authorization", authorization))
                     .andExpect(status().isNoContent());
@@ -219,6 +239,8 @@ class FileControllerTest {
             mockMvc.perform(multipart("/api/file").file(multipartFile))
                     .andExpect(status().isUnauthorized());
             mockMvc.perform(get("/api/files"))
+                    .andExpect(status().isUnauthorized());
+            mockMvc.perform(get("/api/file/{fileId}", 1L))
                     .andExpect(status().isUnauthorized());
             mockMvc.perform(delete("/api/file/{fileId}", 1L))
                     .andExpect(status().isUnauthorized());

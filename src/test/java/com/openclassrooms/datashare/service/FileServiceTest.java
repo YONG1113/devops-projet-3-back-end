@@ -146,6 +146,35 @@ class FileServiceTest {
     }
 
     @Test
+    void getFileByIdReturnsAnOwnedFile() {
+        File record = record(Instant.now().plusSeconds(60));
+        record.setPasswordHash("hash");
+        when(files.findByIdAndUserLogin(1L, user.getLogin())).thenReturn(Optional.of(record));
+
+        var result = service.getFileById(1L, user.getLogin());
+
+        assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.filename()).isEqualTo("hello.txt");
+        assertThat(result.objectPath()).isEqualTo("users/42/object");
+        assertThat(result.isProtectPassword()).isTrue();
+    }
+
+    @Test
+    void getFileByIdRejectsAnUnknownOrUnownedFile() {
+        when(files.findByIdAndUserLogin(99L, user.getLogin())).thenReturn(Optional.empty());
+
+        assertStatus(() -> service.getFileById(99L, user.getLogin()), HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void getFileByIdRejectsANonPositiveIdBeforeRepositoryAccess() {
+        assertThatThrownBy(() -> service.getFileById(0L, user.getLogin()))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(files);
+    }
+
+    @Test
     void deleteRemovesStorageBeforeMetadata() {
         File record = record(Instant.now().plusSeconds(60));
         when(files.findByIdAndUserLogin(1L, user.getLogin())).thenReturn(Optional.of(record));
