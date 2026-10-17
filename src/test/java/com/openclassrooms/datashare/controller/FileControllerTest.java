@@ -3,6 +3,7 @@ package com.openclassrooms.datashare.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclassrooms.datashare.dto.FileDownloadResponseDTO;
+import com.openclassrooms.datashare.dto.FileDownloadRequestDTO;
 import com.openclassrooms.datashare.dto.FileUploadResponseDTO;
 import com.openclassrooms.datashare.dto.UserFileDTO;
 import com.openclassrooms.datashare.entities.User;
@@ -126,7 +127,7 @@ class FileControllerTest {
     void tokenDownloadDoesNotRequireAuthentication() {
         when(fileService.downloadWithToken("token", "secret"))
                 .thenReturn(new FileService.DownloadResult("file.bin", "invalid content type", new byte[] { 3 }));
-        var response = controller.downloadWithToken("token", "secret");
+        var response = controller.downloadWithToken(new FileDownloadRequestDTO("token", "secret"));
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().getContentType().toString()).isEqualTo("application/octet-stream");
     }
@@ -135,7 +136,8 @@ class FileControllerTest {
     void tokenDownloadPropagatesTheServiceStatus() {
         when(fileService.downloadWithToken("token", null))
                 .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN));
-        assertThat(controller.downloadWithToken("token", null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(controller.downloadWithToken(new FileDownloadRequestDTO("token", null)).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
     }
 
     @Test
