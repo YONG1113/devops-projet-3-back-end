@@ -7,6 +7,7 @@ import com.openclassrooms.datashare.entities.User;
 import lombok.RequiredArgsConstructor;
 import com.openclassrooms.datashare.dto.FileDownloadResponseDTO;
 import com.openclassrooms.datashare.dto.FileDownloadRequestDTO;
+import com.openclassrooms.datashare.dto.FileObjectPathDownloadRequestDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -73,12 +74,13 @@ public class FileController {
 
     @Operation(summary = "Télécharger un fichier par son chemin de stockage", description = "Télécharge un fichier appartenant à l'utilisateur connecté.")
     @SecurityRequirement(name = "bearerAuth")
-    @GetMapping("/api/file")
+    @PostMapping(value = "/api/file", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<byte[]> download(
-            @Parameter(description = "Chemin de l'objet dans le bucket", required = true) @RequestParam("objectPath") String objectPath,
+            @Valid @RequestBody FileObjectPathDownloadRequestDTO request,
             @Parameter(hidden = true) Authentication authentication) {
         try {
-            var file = fileService.download(objectPath, authentication.getName());
+            var file = fileService.download(
+                    request.objectPath(), authentication.getName(), request.password());
             String filename = file.filename().replaceAll("[\\r\\n]", "_");
             return ResponseEntity.ok()
                     .contentType(resolveMediaType(file.contentType()))

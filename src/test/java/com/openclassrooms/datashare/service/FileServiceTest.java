@@ -243,10 +243,27 @@ class FileServiceTest {
                 .thenReturn(Optional.of(record));
         when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1, 2 });
 
-        var result = service.download(record.getObjectPath(), user.getLogin());
+        var result = service.download(record.getObjectPath(), user.getLogin(), null);
 
         assertThat(result.filename()).isEqualTo("hello.txt");
         assertThat(result.content()).containsExactly(1, 2);
+    }
+
+    @Test
+    void downloadChecksTheObjectPathPassword() {
+        File record = record(Instant.now().plusSeconds(60));
+        record.setPasswordHash("password-hash");
+        when(storage.getBucket()).thenReturn("documents");
+        when(files.findByBucketAndObjectPathAndUserLogin("documents", record.getObjectPath(), user.getLogin()))
+                .thenReturn(Optional.of(record));
+        when(passwordEncoder.matches("secret", "password-hash")).thenReturn(true);
+        when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
+
+        assertThat(service.download(record.getObjectPath(), user.getLogin(), "secret").content())
+                .containsExactly(1);
+        assertStatus(
+                () -> service.download(record.getObjectPath(), user.getLogin(), "wrong"),
+                HttpStatus.FORBIDDEN);
     }
 
     @Test
@@ -254,12 +271,12 @@ class FileServiceTest {
         when(storage.getBucket()).thenReturn("documents");
         when(files.findByBucketAndObjectPathAndUserLogin("documents", "missing", user.getLogin()))
                 .thenReturn(Optional.empty());
-        assertStatus(() -> service.download("missing", user.getLogin()), HttpStatus.NOT_FOUND);
+        assertStatus(() -> service.download("missing", user.getLogin(), null), HttpStatus.NOT_FOUND);
 
         File expired = record(Instant.now().minusSeconds(1));
         when(files.findByBucketAndObjectPathAndUserLogin("documents", expired.getObjectPath(), user.getLogin()))
                 .thenReturn(Optional.of(expired));
-        assertStatus(() -> service.download(expired.getObjectPath(), user.getLogin()), HttpStatus.GONE);
+        assertStatus(() -> service.download(expired.getObjectPath(), user.getLogin(), null), HttpStatus.GONE);
     }
 
     @Test
@@ -269,7 +286,7 @@ class FileServiceTest {
         when(files.findByBucketAndObjectPathAndUserLogin("documents", record.getObjectPath(), user.getLogin()))
                 .thenReturn(Optional.of(record));
 
-        assertStatus(() -> service.download(record.getObjectPath(), user.getLogin()), HttpStatus.GONE);
+        assertStatus(() -> service.download(record.getObjectPath(), user.getLogin(), null), HttpStatus.GONE);
         verify(storage, never()).download(anyString());
     }
 
@@ -282,7 +299,7 @@ class FileServiceTest {
                 .thenReturn(Optional.of(record));
         when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
 
-        var result = service.download(record.getObjectPath(), user.getLogin());
+        var result = service.download(record.getObjectPath(), user.getLogin(), null);
 
         assertThat(result.contentType()).isEqualTo("application/octet-stream");
     }
