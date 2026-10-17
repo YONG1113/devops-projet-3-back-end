@@ -9,6 +9,5 @@ public record UserFileDTO(
         String contentType,
         String objectPath,
         Instant expiresAt,
-        boolean isProtectPassword,
-        String downloadToken) {
+        boolean isProtectPassword) {
 }
