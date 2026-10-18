@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import jakarta.validation.Valid;
 
 @RestController
@@ -75,20 +76,24 @@ public class FileController {
     @Operation(summary = "Télécharger un fichier par son chemin de stockage", description = "Télécharge un fichier appartenant à l'utilisateur connecté.")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping(value = "/api/file", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<byte[]> download(
+    public ResponseEntity<StreamingResponseBody> download(
             @Valid @RequestBody FileObjectPathDownloadRequestDTO request,
             @Parameter(hidden = true) Authentication authentication) {
         try {
             var file = fileService.download(
                     request.objectPath(), authentication.getName(), request.password());
             String filename = file.filename().replaceAll("[\\r\\n]", "_");
-            return ResponseEntity.ok()
+            StreamingResponseBody responseBody = outputStream -> fileService.streamDownload(file, outputStream);
+
+            ResponseEntity.BodyBuilder response = ResponseEntity.ok()
                     .contentType(resolveMediaType(file.contentType()))
-                    .contentLength(file.content().length)
                     .cacheControl(CacheControl.noStore())
                     .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                            .filename(filename, StandardCharsets.UTF_8).build().toString())
-                    .body(file.content());
+                            .filename(filename, StandardCharsets.UTF_8).build().toString());
+            if (file.contentLength() != null) {
+                response.contentLength(file.contentLength());
+            }
+            return response.body(responseBody);
         } catch (ResponseStatusException exception) {
             return ResponseEntity.status(exception.getStatusCode()).build();
         }
@@ -104,7 +109,7 @@ public class FileController {
 
     @Operation(summary = "Téléverser un fichier", description = "Conserve un fichier pendant 1 à 7 jours avec un mot de passe facultatif.")
     @SecurityRequirement(name = "bearerAuth")
-    @PostMapping(value = "/api/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/api/file/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<FileUploadResponseDTO> upload(
             @Parameter(description = "Fichier à téléverser", required = true) @RequestParam("file") MultipartFile file,
             @Parameter(description = "Identifiant facultatif de l'utilisateur connecté") @RequestParam(value = "userId", required = false) Long userId,
@@ -120,18 +125,22 @@ public class FileController {
 
     @Operation(summary = "Télécharger un fichier avec un jeton public", description = "Reçoit le jeton et le mot de passe facultatif dans un corps JSON afin de ne pas exposer le mot de passe dans l'URL.")
     @PostMapping(value = "/api/file/download", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<byte[]> downloadWithToken(
+    public ResponseEntity<StreamingResponseBody> downloadWithToken(
             @Valid @RequestBody FileDownloadRequestDTO request) {
         try {
             var file = fileService.downloadWithToken(request.token(), request.password());
             String filename = file.filename().replaceAll("[\\r\\n]", "_");
-            return ResponseEntity.ok()
+            StreamingResponseBody responseBody = outputStream -> fileService.streamDownload(file, outputStream);
+
+            ResponseEntity.BodyBuilder response = ResponseEntity.ok()
                     .contentType(resolveMediaType(file.contentType()))
-                    .contentLength(file.content().length)
                     .cacheControl(CacheControl.noStore())
                     .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                            .filename(filename, StandardCharsets.UTF_8).build().toString())
-                    .body(file.content());
+                            .filename(filename, StandardCharsets.UTF_8).build().toString());
+            if (file.contentLength() != null) {
+                response.contentLength(file.contentLength());
+            }
+            return response.body(responseBody);
         } catch (ResponseStatusException exception) {
             return ResponseEntity.status(exception.getStatusCode()).build();
         }

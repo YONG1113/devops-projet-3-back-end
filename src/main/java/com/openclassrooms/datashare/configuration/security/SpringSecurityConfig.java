@@ -1,5 +1,6 @@
 package com.openclassrooms.datashare.configuration.security;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -50,8 +51,10 @@ public class SpringSecurityConfig {
                 .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(authorize -> authorize
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR)
+                        .permitAll()
                         // No auth needed on :
-                        .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**",
+                        .requestMatchers("/error", "/actuator/**", "/v3/api-docs/**", "/swagger-ui/**",
                                 "/swagger-ui.html")
                         .permitAll()
                         .requestMatchers("/api/register", "/api/login", "/api/file/download", "/api/file/info")
@@ -61,7 +64,13 @@ public class SpringSecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exceptionHandling -> exceptionHandling.authenticationEntryPoint(
                         (request, response, exception) -> {
-                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, exception.getMessage());
+                            if (!response.isCommitted()) {
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, exception.getMessage());
+                            }
+                        }).accessDeniedHandler((request, response, exception) -> {
+                            if (!response.isCommitted()) {
+                                response.sendError(HttpServletResponse.SC_FORBIDDEN, exception.getMessage());
+                            }
                         }));
         return http.build();
     }

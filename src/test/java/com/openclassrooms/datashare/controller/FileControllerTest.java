@@ -99,16 +99,19 @@ class FileControllerTest {
 
     @Test
     void downloadsAnOwnedFileAsAnAttachment() {
+        var streamDownload = new FileService.StreamDownloadResult(
+                "report.txt", "text/plain", 2L, "users/42/file");
         when(fileService.download("users/42/file", user.getLogin(), "secret"))
-                .thenReturn(new FileService.DownloadResult("report.txt", "text/plain", new byte[] { 1, 2 }));
+                .thenReturn(streamDownload);
 
         var response = controller.download(
                 new FileObjectPathDownloadRequestDTO("users/42/file", "secret"), authentication);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().getContentType().toString()).isEqualTo("text/plain");
+        assertThat(response.getHeaders().getContentLength()).isEqualTo(2L);
         assertThat(response.getHeaders().getContentDisposition().getFilename()).isEqualTo("report.txt");
-        assertThat(response.getBody()).containsExactly(1, 2);
+        assertThat(response.getBody()).isNotNull();
     }
 
     @Test
@@ -142,11 +145,16 @@ class FileControllerTest {
 
     @Test
     void tokenDownloadDoesNotRequireAuthentication() {
+        var streamDownload = new FileService.StreamDownloadResult(
+                "file.bin", "application/octet-stream", 3L, "users/42/file");
         when(fileService.downloadWithToken("token", "secret"))
-                .thenReturn(new FileService.DownloadResult("file.bin", "invalid content type", new byte[] { 3 }));
+                .thenReturn(streamDownload);
         var response = controller.downloadWithToken(new FileDownloadRequestDTO("token", "secret"));
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().getContentType().toString()).isEqualTo("application/octet-stream");
+        assertThat(response.getHeaders().getContentLength()).isEqualTo(3L);
+        assertThat(response.getHeaders().getContentDisposition().getFilename()).isEqualTo("file.bin");
+        assertThat(response.getBody()).isNotNull();
     }
 
     @Test
@@ -198,7 +206,7 @@ class FileControllerTest {
             MockMultipartFile multipartFile = new MockMultipartFile(
                     "file", "report.txt", "text/plain", "integration content".getBytes());
 
-            String uploadBody = mockMvc.perform(multipart("/api/file")
+            String uploadBody = mockMvc.perform(multipart("/api/file/upload")
                             .file(multipartFile)
                             .param("userId", integrationUser.getId().toString())
                             .param("expirationDays", "3")
@@ -240,7 +248,7 @@ class FileControllerTest {
             MockMultipartFile multipartFile = new MockMultipartFile(
                     "file", "report.txt", "text/plain", new byte[] { 1 });
 
-            mockMvc.perform(multipart("/api/file").file(multipartFile))
+            mockMvc.perform(multipart("/api/file/upload").file(multipartFile))
                     .andExpect(status().isUnauthorized());
             mockMvc.perform(get("/api/files"))
                     .andExpect(status().isUnauthorized());

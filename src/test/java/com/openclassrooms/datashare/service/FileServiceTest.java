@@ -236,17 +236,16 @@ class FileServiceTest {
     }
 
     @Test
-    void downloadReturnsContentForAnOwnedActiveFile() {
+    void downloadReturnsStreamingMetadataForAnOwnedActiveFile() {
         File record = record(Instant.now().plusSeconds(60));
         when(storage.getBucket()).thenReturn("documents");
         when(files.findByBucketAndObjectPathAndUserLogin("documents", record.getObjectPath(), user.getLogin()))
                 .thenReturn(Optional.of(record));
-        when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1, 2 });
-
         var result = service.download(record.getObjectPath(), user.getLogin(), null);
 
         assertThat(result.filename()).isEqualTo("hello.txt");
-        assertThat(result.content()).containsExactly(1, 2);
+        assertThat(result.objectPath()).isEqualTo(record.getObjectPath());
+        assertThat(result.contentLength()).isEqualTo(record.getSize());
     }
 
     @Test
@@ -257,10 +256,8 @@ class FileServiceTest {
         when(files.findByBucketAndObjectPathAndUserLogin("documents", record.getObjectPath(), user.getLogin()))
                 .thenReturn(Optional.of(record));
         when(passwordEncoder.matches("secret", "password-hash")).thenReturn(true);
-        when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
-
-        assertThat(service.download(record.getObjectPath(), user.getLogin(), "secret").content())
-                .containsExactly(1);
+        assertThat(service.download(record.getObjectPath(), user.getLogin(), "secret").objectPath())
+                .isEqualTo(record.getObjectPath());
         assertStatus(
                 () -> service.download(record.getObjectPath(), user.getLogin(), "wrong"),
                 HttpStatus.FORBIDDEN);
@@ -287,7 +284,7 @@ class FileServiceTest {
                 .thenReturn(Optional.of(record));
 
         assertStatus(() -> service.download(record.getObjectPath(), user.getLogin(), null), HttpStatus.GONE);
-        verify(storage, never()).download(anyString());
+        verify(storage, never()).downloadTo(anyString(), any());
     }
 
     @Test
@@ -297,8 +294,6 @@ class FileServiceTest {
         when(storage.getBucket()).thenReturn("documents");
         when(files.findByBucketAndObjectPathAndUserLogin("documents", record.getObjectPath(), user.getLogin()))
                 .thenReturn(Optional.of(record));
-        when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
-
         var result = service.download(record.getObjectPath(), user.getLogin(), null);
 
         assertThat(result.contentType()).isEqualTo("application/octet-stream");
@@ -310,11 +305,11 @@ class FileServiceTest {
         record.setPasswordHash("password-hash");
         when(tokenService.hashToken("token")).thenReturn("hashed-token");
         when(files.findByDownloadTokenHash("hashed-token")).thenReturn(Optional.of(record));
-        when(storage.getBucket()).thenReturn("documents");
         when(passwordEncoder.matches("secret", "password-hash")).thenReturn(true);
-        when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
 
-        assertThat(service.downloadWithToken("token", "secret").content()).containsExactly(1);
+        var result = service.downloadWithToken("token", "secret");
+        assertThat(result.objectPath()).isEqualTo(record.getObjectPath());
+        assertThat(result.contentLength()).isEqualTo(record.getSize());
         assertStatus(() -> service.downloadWithToken("token", null), HttpStatus.FORBIDDEN);
     }
 
@@ -325,8 +320,6 @@ class FileServiceTest {
         record.setContentType(null);
         when(tokenService.hashToken("token")).thenReturn("hashed-token");
         when(files.findByDownloadTokenHash("hashed-token")).thenReturn(Optional.of(record));
-        when(storage.getBucket()).thenReturn("documents");
-        when(storage.download(record.getObjectPath())).thenReturn(new byte[] { 1 });
 
         var result = service.downloadWithToken("token", null);
 
@@ -343,12 +336,11 @@ class FileServiceTest {
         when(tokenService.hashToken("protected")).thenReturn("hashed-protected");
         when(files.findByDownloadTokenHash("hashed-expired")).thenReturn(Optional.of(expired));
         when(files.findByDownloadTokenHash("hashed-protected")).thenReturn(Optional.of(protectedRecord));
-        when(storage.getBucket()).thenReturn("documents");
         when(passwordEncoder.matches("wrong", "password-hash")).thenReturn(false);
 
         assertStatus(() -> service.downloadWithToken("expired", null), HttpStatus.GONE);
         assertStatus(() -> service.downloadWithToken("protected", "wrong"), HttpStatus.FORBIDDEN);
-        verify(storage, never()).download(anyString());
+        verify(storage, never()).downloadTo(anyString(), any());
     }
 
     @Test
