@@ -54,7 +54,7 @@ public class SpringSecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR)
                         .permitAll()
                         // No auth needed on :
-                        .requestMatchers("/error", "/actuator/**", "/v3/api-docs/**", "/swagger-ui/**",
+                        .requestMatchers("/error", "/actuator/health", "/v3/api-docs/**", "/swagger-ui/**",
                                 "/swagger-ui.html")
                         .permitAll()
                         .requestMatchers("/api/register", "/api/login", "/api/file/download", "/api/file/info")
