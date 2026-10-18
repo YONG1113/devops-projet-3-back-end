@@ -219,8 +219,6 @@ public class FileService {
         String tokenHash = downloadTokenService.hashToken(downloadToken);
         record.setDownloadTokenHash(tokenHash);
 
-        record = fileRepository.saveAndFlush(record);
-
         storageService.upload(path, file, contentType);
         try {
             record = fileRepository.saveAndFlush(record);
