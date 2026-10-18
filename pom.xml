@@ -10,9 +10,9 @@
 		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.openclassrooms</groupId>
-	<artifactId>etudiant-backend</artifactId>
+	<artifactId>dataShare-backend</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
-	<name>etudiant-backend</name>
+	<name>dataShare-backend</name>
 	<description>Backend pour la gestion des utilisateurs de la bibliothèque</description>
 	<url />
 	<licenses>
@@ -33,6 +33,7 @@
 		<lombok.version>1.18.32</lombok.version>
 		<testcontainers.version>1.21.4</testcontainers.version>
 		<jacoco.version>0.8.13</jacoco.version>
+		<spotbugs.version>4.10.5.0</spotbugs.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -209,6 +210,28 @@
 					</excludes>
 				</configuration>
 
+			</plugin>
+			<plugin>
+				<groupId>com.github.spotbugs</groupId>
+				<artifactId>spotbugs-maven-plugin</artifactId>
+				<version>${spotbugs.version}</version>
+
+				<configuration>
+					<effort>Max</effort>
+					<threshold>Medium</threshold>
+					<failOnError>true</failOnError>
+					<xmlOutput>true</xmlOutput>
+				</configuration>
+
+				<executions>
+					<execution>
+						<id>spotbugs-check</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>

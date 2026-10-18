@@ -168,8 +168,6 @@ public class FileService {
         String tokenHash = downloadTokenService.hashToken(token);
         File record = fileRepository.findByDownloadTokenHash(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
-        String bucket = storageService.getBucket();
-
         if (record.getExpiresAt() == null ||
                 !record.getExpiresAt().isAfter(Instant.now())) {
             return new FileDownloadResponseDTO(record.getOriginalName(), null,
