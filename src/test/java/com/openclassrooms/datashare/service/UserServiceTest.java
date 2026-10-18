@@ -11,7 +11,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
@@ -94,13 +93,14 @@ public class UserServiceTest {
     }
 
     @Test
-    public void test_login_unknown_user_throws_UsernameNotFoundException() {
+    public void test_login_unknown_user_throws_BadCredentialsException() {
         // GIVEN
         when(userRepository.findByLogin(LOGIN)).thenReturn(Optional.empty());
 
         // THEN
-        Assertions.assertThrows(UsernameNotFoundException.class,
+        BadCredentialsException exception = Assertions.assertThrows(BadCredentialsException.class,
                 () -> userService.login(LOGIN, PASSWORD));
+        assertThat(exception.getMessage()).isEqualTo("Invalid credentials");
     }
 
     @Test
@@ -111,8 +111,9 @@ public class UserServiceTest {
         when(passwordEncoder.matches(PASSWORD, user.getPassword())).thenReturn(false);
 
         // THEN
-        Assertions.assertThrows(BadCredentialsException.class,
+        BadCredentialsException exception = Assertions.assertThrows(BadCredentialsException.class,
                 () -> userService.login(LOGIN, PASSWORD));
+        assertThat(exception.getMessage()).isEqualTo("Invalid credentials");
     }
 
     @Test
