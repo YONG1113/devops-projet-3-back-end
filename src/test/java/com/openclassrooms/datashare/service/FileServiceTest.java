@@ -348,7 +348,6 @@ class FileServiceTest {
         File record = record(Instant.now().minusSeconds(1));
         when(tokenService.hashToken("token")).thenReturn("hashed-token");
         when(files.findByDownloadTokenHash("hashed-token")).thenReturn(Optional.of(record));
-        when(storage.getBucket()).thenReturn("documents");
 
         var result = service.getFileDetailByToken("token");
 
@@ -364,7 +363,6 @@ class FileServiceTest {
         record.setPasswordHash("password-hash");
         when(tokenService.hashToken("token")).thenReturn("hashed-token");
         when(files.findByDownloadTokenHash("hashed-token")).thenReturn(Optional.of(record));
-        when(storage.getBucket()).thenReturn("documents");
 
         var result = service.getFileDetailByToken("token");
 
@@ -378,7 +376,6 @@ class FileServiceTest {
         File record = record(null);
         when(tokenService.hashToken("token")).thenReturn("hashed-token");
         when(files.findByDownloadTokenHash("hashed-token")).thenReturn(Optional.of(record));
-        when(storage.getBucket()).thenReturn("documents");
 
         var result = service.getFileDetailByToken("token");
 

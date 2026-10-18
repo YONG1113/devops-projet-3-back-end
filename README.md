@@ -150,7 +150,7 @@ L'API démarre par défaut sur :
 http://localhost:8080
 ```
 
-Le point d'entrée est `dataShareBackEndApplication`.
+Le point d'entrée est `DataShareBackEndApplication`.
 
 ## API
 

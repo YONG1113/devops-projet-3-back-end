@@ -6,10 +6,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-public class dataShareBackEndApplication {
+public class DataShareBackEndApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(dataShareBackEndApplication.class, args);
+        SpringApplication.run(DataShareBackEndApplication.class, args);
     }
 
 }
