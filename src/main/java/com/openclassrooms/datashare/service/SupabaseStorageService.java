@@ -10,6 +10,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.OutputStream;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
@@ -76,6 +77,33 @@ public class SupabaseStorageService {
             return content;
         } catch (RestClientException exception) {
             throw new StorageException("Supabase Storage download failed");
+        }
+    }
+
+    public void downloadTo(String path, OutputStream outputStream) {
+        requireConfigured();
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException("Storage object path is required");
+        }
+
+        try {
+            client.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/object/authenticated/{bucket}")
+                            .pathSegment(path.split("/"))
+                            .build(bucket))
+                    .exchange((request, response) -> {
+                        if (response.getStatusCode().isError()) {
+                            throw new StorageException("Supabase Storage streaming download failed");
+                        }
+                        try (var inputStream = response.getBody()) {
+                            inputStream.transferTo(outputStream);
+                            outputStream.flush();
+                        }
+                        return null;
+                    });
+        } catch (RestClientException exception) {
+            throw new StorageException("Supabase Storage streaming download failed");
         }
     }
 

@@ -8,6 +8,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.io.ByteArrayOutputStream;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
@@ -45,6 +47,19 @@ class SupabaseStorageServiceTest {
                 .andRespond(withSuccess(new byte[] { 1, 2 }, MediaType.APPLICATION_OCTET_STREAM));
 
         assertThat(storage.download("users/42/unique")).containsExactly(1, 2);
+        server.verify();
+    }
+
+    @Test
+    void streamsFileWithoutCreatingAByteArrayResponse() {
+        server.expect(requestTo("https://example.supabase.co/storage/v1/object/authenticated/documents/users/42/unique"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(new byte[] { 1, 2 }, MediaType.APPLICATION_OCTET_STREAM));
+        var output = new ByteArrayOutputStream();
+
+        storage.downloadTo("users/42/unique", output);
+
+        assertThat(output.toByteArray()).containsExactly(1, 2);
         server.verify();
     }
 

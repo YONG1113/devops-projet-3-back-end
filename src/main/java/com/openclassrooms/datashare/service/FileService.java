@@ -21,6 +21,7 @@ import org.springframework.util.Assert;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.io.OutputStream;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.List;
@@ -40,7 +41,11 @@ public class FileService {
     private final PasswordEncoder passwordEncoder;
     private final DownloadTokenService downloadTokenService;
 
-    public record DownloadResult(String filename, String contentType, byte[] content) {
+    public record StreamDownloadResult(
+            String filename,
+            String contentType,
+            Long contentLength,
+            String objectPath) {
     }
 
     public List<UserFileDTO> getAllFilesByUser(String login) {
@@ -114,7 +119,7 @@ public class FileService {
         }
     }
 
-    public DownloadResult download(String objectPath, String login, String password) {
+    public StreamDownloadResult download(String objectPath, String login, String password) {
         Assert.hasText(objectPath, "Object path is required");
         Assert.hasText(login, "Authenticated user is required");
         String bucket = storageService.getBucket();
@@ -127,31 +132,35 @@ public class FileService {
 
         validateDownloadPassword(record, password);
 
-        byte[] content = storageService.download(record.getObjectPath());
         String contentType = record.getContentType() == null || record.getContentType().isBlank()
                 ? MediaType.APPLICATION_OCTET_STREAM_VALUE
                 : record.getContentType();
-        return new DownloadResult(record.getOriginalName(), contentType, content);
+        return new StreamDownloadResult(
+                record.getOriginalName(), contentType, record.getSize(), record.getObjectPath());
     }
 
-    public DownloadResult downloadWithToken(String token, String password) {
+    public StreamDownloadResult downloadWithToken(String token, String password) {
         Assert.hasText(token, "token is required");
         String tokenHash = downloadTokenService.hashToken(token);
         File record = fileRepository.findByDownloadTokenHash(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
-        String bucket = storageService.getBucket();
-
         if (record.getExpiresAt() == null || !record.getExpiresAt().isAfter(Instant.now())) {
             throw new ResponseStatusException(HttpStatus.GONE, "File has expired");
         }
 
         validateDownloadPassword(record, password);
 
-        byte[] content = storageService.download(record.getObjectPath());
         String contentType = record.getContentType() == null || record.getContentType().isBlank()
                 ? MediaType.APPLICATION_OCTET_STREAM_VALUE
                 : record.getContentType();
-        return new DownloadResult(record.getOriginalName(), contentType, content);
+        return new StreamDownloadResult(
+                record.getOriginalName(), contentType, record.getSize(), record.getObjectPath());
+    }
+
+    public void streamDownload(StreamDownloadResult download, OutputStream outputStream) {
+        Assert.notNull(download, "Download information is required");
+        Assert.notNull(outputStream, "Download output stream is required");
+        storageService.downloadTo(download.objectPath(), outputStream);
     }
 
     public FileDownloadResponseDTO getFileDetailByToken(String token) {
