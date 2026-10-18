@@ -58,7 +58,7 @@ class FileServiceTest {
         var result = service.upload(multipart, user.getLogin(), 3, "secret");
 
         ArgumentCaptor<File> captor = ArgumentCaptor.forClass(File.class);
-        verify(files, times(2)).saveAndFlush(captor.capture());
+        verify(files).saveAndFlush(captor.capture());
         File record = captor.getValue();
         verify(storage).upload(eq(record.getObjectPath()), same(multipart), eq("text/plain"));
         assertThat(record.getUser()).isSameAs(user);

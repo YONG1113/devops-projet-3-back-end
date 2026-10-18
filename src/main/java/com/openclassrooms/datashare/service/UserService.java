@@ -6,7 +6,6 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,7 +28,7 @@ public class UserService {
 
         Optional<User> optionalUser = userRepository.findByLogin(user.getLogin());
         if (optionalUser.isPresent()) {
-            throw new IllegalArgumentException("User with login " + user.getLogin() + " already exists");
+            throw new IllegalArgumentException("Invalid register information");
         }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         userRepository.save(user);
@@ -42,11 +41,11 @@ public class UserService {
         Optional<User> user = userRepository.findByLogin(login);
 
         if (!user.isPresent()) {
-            throw new UsernameNotFoundException("User not found");
+            throw new BadCredentialsException("Invalid credentials");
         }
 
         if (!passwordEncoder.matches(password, user.get().getPassword())) {
-            throw new BadCredentialsException("Invalid password");
+            throw new BadCredentialsException("Invalid credentials");
         }
 
         UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
@@ -56,6 +55,5 @@ public class UserService {
                 .build();
         return jwtService.generateToken(userDetails);
     }
-
 
 }
